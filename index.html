@@ -10,7 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;700&family=Roboto:ital,wght@0,400;0,700;1,400&family=Work+Sans:ital,wght@0,400;0,700;1,400&family=Mrs+Saint+Delafield&family=Herr+Von+Muellerhoff&family=Rouge+Script&display=swap" rel="stylesheet">
   <!-- Metropolis font is not available on Google Fonts, so we'll use a CSS import -->
   <style>
-    @import url('https://cdn.jsdelivr.net/gh/mattrothenberg/metropolis@master/metropolis.css');
+    /* Use a more reliable source for the Metropolis font */
+    @import url('https://fonts.cdnfonts.com/css/metropolis-2');
     
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
@@ -21,6 +22,19 @@
       overflow: hidden;
       width: 100vw;
       height: 100vh;
+    }
+    
+    /* Add CSS for the visually-hidden class */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     
     .app-container {
@@ -1130,9 +1144,10 @@
                   <span id="numLinesValue" class="slider-value">60</span>
                 </div>
                 <div class="toggle-container" data-slider-id="numLines">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="numLinesToggle" class="visually-hidden toggle-input">
+                  <label for="numLinesToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1145,9 +1160,10 @@
                   <span id="lineThicknessValue" class="slider-value">1.5</span>
                 </div>
                 <div class="toggle-container" data-slider-id="lineThickness">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="lineThicknessToggle" class="visually-hidden toggle-input">
+                  <label for="lineThicknessToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1160,9 +1176,10 @@
                   <span id="innerRadiusRatioValue" class="slider-value">0</span>
                 </div>
                 <div class="toggle-container" data-slider-id="innerRadiusRatio">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="innerRadiusRatioToggle" class="visually-hidden toggle-input">
+                  <label for="innerRadiusRatioToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1175,9 +1192,10 @@
                   <span id="rotationValue" class="slider-value">0</span>
                 </div>
                 <div class="toggle-container" data-slider-id="rotation">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="rotationToggle" class="visually-hidden toggle-input">
+                  <label for="rotationToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1190,9 +1208,10 @@
                   <span id="canvasRotationValue" class="slider-value">0</span>
                 </div>
                 <div class="toggle-container" data-slider-id="canvasRotation">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="canvasRotationToggle" class="visually-hidden toggle-input">
+                  <label for="canvasRotationToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1205,9 +1224,10 @@
                   <span id="scaleValue" class="slider-value">1</span>
                 </div>
                 <div class="toggle-container" data-slider-id="scale">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="scaleToggle" class="visually-hidden toggle-input">
+                  <label for="scaleToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1222,9 +1242,10 @@
                     <span id="displacementXValue" class="slider-value">0</span>
                   </div>
                   <div class="toggle-container" data-slider-id="displacementX">
-                    <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <input type="checkbox" id="displacementXToggle" class="visually-hidden toggle-input">
+                    <label for="displacementXToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                       <span class="tooltip">Toggle animation</span>
-                    </div>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -1237,9 +1258,10 @@
                     <span id="displacementYValue" class="slider-value">0</span>
                   </div>
                   <div class="toggle-container" data-slider-id="displacementY">
-                    <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <input type="checkbox" id="displacementYToggle" class="visually-hidden toggle-input">
+                    <label for="displacementYToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                       <span class="tooltip">Toggle animation</span>
-                    </div>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -1253,9 +1275,10 @@
                   <span id="cornerRadiusValue" class="slider-value">0</span>
                 </div>
                 <div class="toggle-container" data-slider-id="cornerRadius">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="cornerRadiusToggle" class="visually-hidden toggle-input">
+                  <label for="cornerRadiusToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1349,9 +1372,10 @@
                   <span id="morphProgressValue" class="slider-value">0</span>
                 </div>
                 <div class="toggle-container" data-slider-id="morphProgress">
-                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                  <input type="checkbox" id="morphProgressToggle" class="visually-hidden toggle-input">
+                  <label for="morphProgressToggle" class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
                     <span class="tooltip">Toggle animation</span>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1434,7 +1458,7 @@
             <h3>Animation</h3>
             
             <div class="button-container">
-              <button id="animateBtn" aria-label="Toggle Animation">Animate Morph</button>
+              <button id="animateBtn" class="control-button" aria-label="Toggle Animation" onclick="if(window.StarburstRenderer) { const renderer = document.getElementById('starburstCanvas').renderer; if(renderer) { const isAnimating = renderer.toggleAnimation(); this.textContent = isAnimating ? 'Stop Animation' : 'Animate Morph'; }}">Animate Morph</button>
               <button id="resetBtn" class="secondary" aria-label="Reset Settings">Reset</button>
             </div>
             
@@ -1505,9 +1529,10 @@
               <label>Text Case:</label>
               <div class="toggle-switch-container">
                 <span class="toggle-label">a</span>
-                <div class="toggle-switch" id="textCaseToggle" role="switch" aria-checked="false" tabindex="0">
+                <input type="checkbox" id="textCaseToggleInput" class="visually-hidden toggle-input">
+                <label for="textCaseToggleInput" class="toggle-switch" id="textCaseToggle" role="switch" aria-checked="false" tabindex="0">
                   <span class="tooltip">Toggle case</span>
-                </div>
+                </label>
                 <span class="toggle-label">A</span>
               </div>
             </div>
@@ -1531,19 +1556,19 @@
             </div>
             
             <div class="slider-container">
-              <label for="textSize">Size</label>
+              <label for="textSize">Size:</label>
               <input type="range" id="textSize" min="10" max="300" value="40" step="1" aria-label="Text Size">
               <span class="slider-value" id="textSizeValue">40</span>
             </div>
             
             <div class="slider-container">
-              <label for="charSpacing">Char. Spacing</label>
+              <label for="charSpacing">Char. Spacing:</label>
               <input type="range" id="charSpacing" min="-0.3" max="3" value="0" step="0.01" aria-label="Character Spacing">
               <span class="slider-value" id="charSpacingValue">0</span>
             </div>
             
             <div class="slider-container">
-              <label for="lineSpacing">Line Spacing</label>
+              <label for="lineSpacing">Line Spacing:</label>
               <input type="range" id="lineSpacing" min="0.1" max="5" value="1.5" step="0.1" aria-label="Line Spacing">
               <span class="slider-value" id="lineSpacingValue">1.5</span>
             </div>
@@ -1628,5 +1653,41 @@
   <script src="modules.js"></script>
   <script src="renderer.js"></script>
   <script src="initialization.js"></script>
+  
+  <!-- Additional script to fix animation toggle -->
+  <script>
+    // Make sure animation toggle button works by storing the renderer on the canvas
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        const canvas = document.getElementById('starburstCanvas');
+        const animateBtn = document.getElementById('animateBtn');
+        
+        // Find the global renderer instance that's using this canvas
+        if (window.StarburstRenderer && canvas) {
+          console.log('Setting up animation toggle with renderer');
+          
+          // Check if there's a single renderer in the page
+          if (typeof window.renderer !== 'undefined') {
+            // Store the renderer reference directly on the canvas
+            canvas.renderer = window.renderer;
+            console.log('Renderer attached to canvas', canvas.renderer);
+          }
+          
+          // Add a direct click handler to the animation button
+          animateBtn.addEventListener('click', function() {
+            console.log('Animation button clicked');
+            if (canvas.renderer && typeof canvas.renderer.toggleAnimation === 'function') {
+              const isAnimating = canvas.renderer.toggleAnimation();
+              this.textContent = isAnimating ? 'Stop Animation' : 'Animate Morph';
+              console.log('Animation toggled:', isAnimating);
+            } else {
+              console.error('No renderer found on canvas or toggleAnimation not available');
+              alert('Animation toggle not available');
+            }
+          });
+        }
+      }, 1000); // Wait a second for everything to initialize
+    });
+  </script>
 </body>
 </html>

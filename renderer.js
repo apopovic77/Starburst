@@ -4,27 +4,34 @@
  */
 class StarburstRenderer {
     /**
-     * Create a new renderer instance
-     * @param {HTMLCanvasElement} canvas - Canvas element to render on
-     * @param {object} calculator - Shape calculator for distance calculations
-     * @param {object} options - Initial configuration options
+     * Create a new Starburst Renderer
+     * @param {HTMLCanvasElement} canvas - Canvas element to render to
+     * @param {object} calculator - Shape calculator object
+     * @param {object} options - Rendering options
      */
     constructor(canvas, calculator, options = {}) {
-      this.canvas = canvas;
-      this.ctx = canvas.getContext('2d');
-      this.calculator = calculator;
-      this.options = this._mergeDefaults(options);
-      this.lastRenderTime = 0;
-      this.lastFrameTime = 0;
-      this.isAnimating = false;
-      this.animationDirection = 1;
-      this.animationFrame = null;
-      
-      // Initialize
-      this._setupCanvas();
-      this._bindEvents();
-      
-      Logger.info('Starburst renderer initialized', { canvasSize: `${this.canvas.width}x${this.canvas.height}` });
+        console.log('StarburstRenderer constructor called', { canvas, calculator, options });
+        
+        if (!canvas) {
+            throw new Error('Canvas element is required');
+        }
+        
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.calculator = calculator || {};
+        this.options = this._mergeDefaults(options);
+        this.isAnimating = false;
+        this.animationFrame = null;
+        this.lastFrameTime = 0;
+        this.animationDirection = 1;
+        
+        // Setup canvas and bind events
+        this._setupCanvas();
+        this._bindEvents();
+        
+        // For debugging
+        console.log('StarburstRenderer initialized with options:', this.options);
+        console.log('StarburstRenderer methods:', Object.getOwnPropertyNames(StarburstRenderer.prototype));
     }
     
     /**
@@ -716,69 +723,66 @@ class StarburstRenderer {
         <stop offset="100%" stop-color="${this.options.centerColor}" stop-opacity="0"/>
       </radialGradient>`;
         
-        // Add lines
-        const angleStep = (2 * Math.PI) / this.options.numLines;
+        // Apply displacement
+        const { displacementX, displacementY } = this.options;
+        const adjustedCenterX = centerX + displacementX;
+        const adjustedCenterY = centerY + displacementY;
         
-        // Add gradient definitions
-        for (let i = 0; i < this.options.numLines; i++) {
-          const angle = i * angleStep;
+        // Check generation strategy to use appropriate rendering method
+        if (this.options.generationStrategy === 'concentric') {
+          // SVG for concentric pattern
+          svgContent = this._exportConcentricSVG(svgContent, adjustedCenterX, adjustedCenterY, maxRadius);
+        } else {
+          // Default starburst pattern
+          const angleStep = (2 * Math.PI) / this.options.numLines;
           
-          // Calculate morphed distance
-          const dist = this._calculateMorphedDistance(angle);
-          
-          // Apply displacement
-          const { displacementX, displacementY } = this.options;
-          const adjustedCenterX = centerX + displacementX;
-          const adjustedCenterY = centerY + displacementY;
-          
-          // Calculate line points
-          const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
-          const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
-          const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
-          const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
-          
-          // Add gradient definition
-          const gradientId = `gradient-${i}`;
-          svgContent += `
+          // Add gradient definitions
+          for (let i = 0; i < this.options.numLines; i++) {
+            const angle = i * angleStep;
+            
+            // Calculate morphed distance
+            const dist = this._calculateMorphedDistance(angle);
+            
+            // Calculate line points
+            const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
+            const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
+            const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
+            const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
+            
+            // Add gradient definition
+            const gradientId = `gradient-${i}`;
+            svgContent += `
       <linearGradient id="${gradientId}" x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" gradientUnits="userSpaceOnUse">
         <stop offset="0%" stop-color="${this.options.centerColor}"/>
         <stop offset="100%" stop-color="${this.options.outerColor}"/>
       </linearGradient>`;
-        }
-        
-        // Close defs section
-        svgContent += `
-    </defs>`;
-        
-        // Add lines
-        for (let i = 0; i < this.options.numLines; i++) {
-          const angle = i * angleStep;
+          }
           
-          // Calculate morphed distance
-          const dist = this._calculateMorphedDistance(angle);
-          
-          // Apply displacement
-          const { displacementX, displacementY } = this.options;
-          const adjustedCenterX = centerX + displacementX;
-          const adjustedCenterY = centerY + displacementY;
-          
-          // Calculate line points
-          const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
-          const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
-          const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
-          const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
-          
-          // Add line
+          // Close defs section
           svgContent += `
+    </defs>`;
+          
+          // Add lines
+          for (let i = 0; i < this.options.numLines; i++) {
+            const angle = i * angleStep;
+            
+            // Calculate morphed distance
+            const dist = this._calculateMorphedDistance(angle);
+            
+            // Calculate line points
+            const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
+            const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
+            const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
+            const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
+            
+            // Add line
+            svgContent += `
     <line x1="${startX}" y1="${startY}" x2="${endX}" y2="${endY}" stroke="url(#gradient-${i})" stroke-width="${this.options.lineThickness}"/>`;
+          }
         }
         
         // Add center glow
         const glowRadius = Math.max(5, maxRadius * 0.05);
-        // Make sure we have adjustedCenterX and adjustedCenterY defined for these elements
-        const { displacementX, displacementY } = this.options;
-        const adjustedCenterX = centerX + displacementX;
-        const adjustedCenterY = centerY + displacementY;
         
         svgContent += `
     <circle cx="${adjustedCenterX}" cy="${adjustedCenterY}" r="${glowRadius}" fill="url(#centerGlow)"/>`;
@@ -892,7 +896,7 @@ class StarburstRenderer {
             
             if (displaySubtitle) {
               svgContent += `
-      <text x="0" y="${titleFontSize * lineSpacing}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle">${displaySubtitle}</text>`;
+      <text x="0" y="${titleFontSize * lineSpacing}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle" letter-spacing="${charSpacing}em">${displaySubtitle}</text>`;
             }
             
             svgContent += `
@@ -927,7 +931,7 @@ class StarburstRenderer {
             // Add subtitle
             if (displaySubtitle) {
               svgContent += `
-    <text x="${subtitleX}" y="${subtitleY}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle">${displaySubtitle}</text>`;
+    <text x="${subtitleX}" y="${subtitleY}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle" letter-spacing="${charSpacing}em">${displaySubtitle}</text>`;
             }
           }
         }
@@ -945,6 +949,94 @@ class StarburstRenderer {
         this._showStatusMessage('Error creating SVG', 'error');
         return null;
       }
+    }
+    
+    /**
+     * Export SVG for concentric pattern
+     * @param {string} svgContent - Initial SVG content with opening tags
+     * @param {number} centerX - X coordinate of center
+     * @param {number} centerY - Y coordinate of center
+     * @param {number} maxRadius - Maximum radius
+     * @returns {string} - Updated SVG content
+     */
+    _exportConcentricSVG(svgContent, centerX, centerY, maxRadius) {
+      const { 
+        concentricSpacing, 
+        morphProgress, 
+        lineThickness,
+        numLines,
+        centerColor,
+        outerColor
+      } = this.options;
+      
+      // Use numLines as the number of concentric rings
+      const ringCount = Math.max(3, Math.min(Math.floor(numLines/2), 50));
+      
+      // Calculate the spacing between rings
+      const spacing = maxRadius / ringCount;
+      
+      // Fixed number of segments per ring for smooth appearance
+      const segmentsPerRing = 72; // 5-degree steps
+      const angleStep = (2 * Math.PI) / segmentsPerRing;
+      
+      // Add radial gradients for each ring
+      for (let i = 1; i <= ringCount; i++) {
+        const radius = i * spacing;
+        const layerRatio = i / ringCount;
+        
+        // Interpolate between colors based on layer position
+        const layerCenterColor = this._interpolateColor(
+          centerColor, 
+          outerColor, 
+          layerRatio
+        );
+        
+        // Add gradient definition
+        svgContent += `
+      <radialGradient id="ring-gradient-${i}" cx="${centerX}" cy="${centerY}" r="${radius}" fx="${centerX}" fy="${centerY}" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stop-color="${layerCenterColor}"/>
+        <stop offset="100%" stop-color="${outerColor}"/>
+      </radialGradient>`;
+      }
+      
+      // Close defs section
+      svgContent += `
+    </defs>`;
+      
+      // Add each concentric ring as a path
+      for (let i = 1; i <= ringCount; i++) {
+        const radius = i * spacing;
+        
+        // Create path for this ring
+        let pathData = `M`;
+        
+        // Use the fixed angleStep for smooth rings
+        for (let j = 0; j <= segmentsPerRing; j++) {
+          const angle = j * angleStep;
+          
+          // Calculate morphed distance for this angle
+          const dist = this._calculateMorphedDistance(angle);
+          
+          // Calculate point on the shape
+          const x = centerX + Math.cos(angle) * radius * dist;
+          const y = centerY + Math.sin(angle) * radius * dist;
+          
+          if (j === 0) {
+            pathData += `${x},${y}`;
+          } else {
+            pathData += ` L${x},${y}`;
+          }
+        }
+        
+        // Close the path
+        pathData += ` Z`;
+        
+        // Add the path with gradient fill
+        svgContent += `
+    <path d="${pathData}" stroke="url(#ring-gradient-${i})" stroke-width="${lineThickness}" fill="none"/>`;
+      }
+      
+      return svgContent;
     }
     
     /**
@@ -1133,6 +1225,7 @@ class StarburstRenderer {
         // Draw subtitle
         if (displaySubtitle) {
           this.ctx.font = `${fontStyle}${subtitleFontSize}px ${fontFamilyValue}`;
+          this.ctx.letterSpacing = `${charSpacing}em`;
           this.ctx.fillText(displaySubtitle, 0, titleFontSize * lineSpacing);
         }
         
@@ -1168,6 +1261,7 @@ class StarburstRenderer {
         // Draw subtitle
         if (displaySubtitle) {
           this.ctx.font = `${fontStyle}${subtitleFontSize}px ${fontFamilyValue}`;
+          this.ctx.letterSpacing = `${charSpacing}em`;
           this.ctx.fillText(displaySubtitle, subtitleX, subtitleY);
         }
       }
@@ -1176,3 +1270,16 @@ class StarburstRenderer {
       this.ctx.restore();
     }
   }
+
+// Make StarburstRenderer globally available
+window.StarburstRenderer = StarburstRenderer;
+
+// Also expose the renderer instance when created
+const originalConstructor = StarburstRenderer.prototype.constructor;
+StarburstRenderer.prototype.constructor = function(...args) {
+  const result = originalConstructor.apply(this, args);
+  // Store this instance globally
+  window.renderer = this;
+  console.log('Stored renderer globally as window.renderer');
+  return result;
+};

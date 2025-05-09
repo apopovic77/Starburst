@@ -721,17 +721,13 @@ document.addEventListener('DOMContentLoaded', function() {
     let renderer;
     try {
       renderer = new StarburstRenderer(canvas, ShapeCalculator, settings);
-      
-      // Add debugging to check renderer variable
-      console.log('Renderer initialized:', renderer);
-      
       Logger.info('Renderer initialized successfully');
       
       // Set settings reference in TestManager
       TestManager.setSettings(settings);
       
-      // Register renderer tests with TestManager
-      TestManager.registerRendererTests(renderer);
+      // Initialize TestManager with the renderer
+      TestManager.initialize(renderer);
     } catch (error) {
       Logger.error('Failed to initialize renderer', error);
       alert('Failed to initialize renderer. Check console for details.');
@@ -940,13 +936,6 @@ document.addEventListener('DOMContentLoaded', function() {
       updateUIValues();
     });
     
-    // Add scale slider handler
-    setupControlListener(scaleSlider, 'input', () => {
-      const value = parseFloat(scaleSlider.value);
-      applySetting('scale', value);
-      updateUIValues();
-    });
-    
     setupControlListener(morphProgressSlider, 'input', () => {
       const value = parseFloat(morphProgressSlider.value);
       applySetting('morphProgress', value);
@@ -1014,41 +1003,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Animation buttons
     setupControlListener(animateBtn, 'click', () => {
-      try {
-        console.log('Animation button clicked');
-        
-        // Make sure renderer is defined and log its properties
-        if (!renderer) {
-          console.error('Renderer is not initialized');
-          Logger.error('Renderer not available for animation toggle');
-          alert('Animation toggle failed: renderer not available');
-          return;
-        }
-        
-        console.log('Renderer object:', renderer);
-        console.log('Renderer methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(renderer)));
-        
-        // Check if the toggleAnimation method exists
-        if (typeof renderer.toggleAnimation !== 'function') {
-          console.error('renderer.toggleAnimation is not a function', renderer);
-          Logger.error('toggleAnimation method not found on renderer');
-          alert('Animation toggle failed: renderer method not available');
-          return;
-        }
-        
-        // Toggle animation state
-        console.log('Calling toggleAnimation()');
-        const isAnimating = renderer.toggleAnimation();
-        console.log('Animation state:', isAnimating);
-        animateBtn.textContent = isAnimating ? 'Stop Animation' : 'Animate Morph';
-        
-        // Log the change
-        Logger.info(`Animation ${isAnimating ? 'started' : 'stopped'}`);
-      } catch (error) {
-        console.error('Animation toggle error:', error);
-        Logger.error('Animation toggle failed', error);
-        alert('Failed to toggle animation. Error: ' + error.message);
-      }
+      const isAnimating = renderer.toggleAnimation();
+      animateBtn.textContent = isAnimating ? 'Stop Animation' : 'Animate Morph';
     });
     
     setupControlListener(resetBtn, 'click', () => {
@@ -1501,27 +1457,4 @@ document.addEventListener('DOMContentLoaded', function() {
           alert('Failed to copy test results. See console for details.');
         });
     });
-    
-    // Make sure animateBtn is properly initialized
-    if (animateBtn) {
-      // Add a direct click handler for debugging
-      animateBtn.onclick = function() {
-        console.log('Animation button direct click handler');
-        try {
-          if (renderer) {
-            const isAnimating = renderer.toggleAnimation();
-            this.textContent = isAnimating ? 'Stop Animation' : 'Animate Morph';
-            console.log('Animation toggled, new state:', isAnimating);
-          } else {
-            console.error('Renderer is not available for animation');
-            alert('Cannot animate: renderer not initialized');
-          }
-        } catch (error) {
-          console.error('Animation error:', error);
-          alert('Animation error: ' + error.message);
-        }
-      };
-    } else {
-      console.error('Animation button not found in the DOM');
-    }
-});
+  });

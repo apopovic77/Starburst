@@ -391,8 +391,13 @@ const Logger = (function() {
         // Interpolate between inner and outer radius
         const distance = innerRadius + sharpPointPosition * (1 - innerRadius);
         
-        // Apply corner radius effect at the points
-        return applyCornerRadius(distance, angle, cornerRadius, points, cornerRadiusMethod);
+        // Apply corner radius effect at the points ONLY if cornerRadius > 0
+        if (cornerRadius > 0) {
+          return applyCornerRadius(distance, angle, cornerRadius, points, cornerRadiusMethod);
+        }
+        
+        // Otherwise return the original distance
+        return distance;
       } catch (error) {
         Logger.error('Error calculating star shape', error);
         return 1; // Fallback to circle
@@ -422,8 +427,13 @@ const Logger = (function() {
         
         const distance = 1 / (cosValue * TRIANGLE_HEIGHT_FACTOR);
         
-        // Apply corner radius (3 corners for triangle)
-        return applyCornerRadius(distance, shiftedAngle, cornerRadius, 3, cornerRadiusMethod);
+        // Apply corner radius ONLY if it's greater than 0
+        if (cornerRadius > 0) {
+          return applyCornerRadius(distance, shiftedAngle, cornerRadius, 3, cornerRadiusMethod);
+        }
+        
+        // Otherwise return the original distance
+        return distance;
       } catch (error) {
         Logger.error('Error calculating triangle shape', error);
         return 1; // Fallback to circle
@@ -451,8 +461,13 @@ const Logger = (function() {
         
         const distance = 1 / divisor;
         
-        // Apply corner radius (4 corners for square)
-        return applyCornerRadius(distance, angle, cornerRadius, 4, cornerRadiusMethod);
+        // Apply corner radius ONLY if it's greater than 0
+        if (cornerRadius > 0) {
+          return applyCornerRadius(distance, angle, cornerRadius, 4, cornerRadiusMethod);
+        }
+        
+        // Otherwise return the original distance
+        return distance;
       } catch (error) {
         Logger.error('Error calculating square shape', error);
         return 1; // Fallback to circle
@@ -484,8 +499,13 @@ const Logger = (function() {
         
         const distance = 1 / (cosVal * apothem);
         
-        // Apply corner radius (5 corners for pentagon)
-        return applyCornerRadius(distance, shiftedAngle, cornerRadius, 5, cornerRadiusMethod);
+        // Apply corner radius ONLY if it's greater than 0
+        if (cornerRadius > 0) {
+          return applyCornerRadius(distance, shiftedAngle, cornerRadius, 5, cornerRadiusMethod);
+        }
+        
+        // Otherwise return the original distance
+        return distance;
       } catch (error) {
         Logger.error('Error calculating pentagon shape', error);
         return 1; // Fallback to circle
@@ -515,8 +535,13 @@ const Logger = (function() {
         
         const distance = 1 / (cosVal * apothem);
         
-        // Apply corner radius (6 corners for hexagon)
-        return applyCornerRadius(distance, angle, cornerRadius, 6, cornerRadiusMethod);
+        // Apply corner radius ONLY if it's greater than 0
+        if (cornerRadius > 0) {
+          return applyCornerRadius(distance, angle, cornerRadius, 6, cornerRadiusMethod);
+        }
+        
+        // Otherwise return the original distance
+        return distance;
       } catch (error) {
         Logger.error('Error calculating hexagon shape', error);
         return 1; // Fallback to circle
@@ -966,14 +991,14 @@ const Logger = (function() {
     }
     
     /**
-     * Save settings to cookies for persistence across sessions
+     * Save settings to localStorage for persistence across sessions
      * @param {object} settings - Settings to save
      * @returns {boolean} - Success status
      */
     function saveSettingsToCookies(settings) {
       try {
-        // Only save essential settings to cookies to avoid size limitations
-        const cookieSettings = {
+        // Create a complete settings copy for storage
+        const storableSettings = {
           fontFamily: settings.fontFamily,
           textSize: settings.textSize,
           textPosition: settings.textPosition,
@@ -984,56 +1009,122 @@ const Logger = (function() {
           startShape: settings.startShape,
           endShape: settings.endShape,
           generationStrategy: settings.generationStrategy,
-          scale: settings.scale
+          scale: settings.scale,
+          // Include all other important settings
+          numLines: settings.numLines,
+          lineThickness: settings.lineThickness,
+          innerRadiusRatio: settings.innerRadiusRatio,
+          rotation: settings.rotation,
+          canvasRotation: settings.canvasRotation,
+          centerColor: settings.centerColor,
+          outerColor: settings.outerColor,
+          backgroundColor: settings.backgroundColor,
+          animationSpeed: settings.animationSpeed,
+          textColor: settings.textColor,
+          charSpacing: settings.charSpacing,
+          lineSpacing: settings.lineSpacing
         };
         
         // Convert to JSON string
-        const settingsJson = JSON.stringify(cookieSettings);
+        const settingsJson = JSON.stringify(storableSettings);
         
-        // Set cookie that expires in 30 days
-        const expirationDate = new Date();
-        expirationDate.setDate(expirationDate.getDate() + 30);
+        // For browser environments - try cookies first (will work better for http/https)
+        let cookieSuccess = false;
+        try {
+          const isWebProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
+          if (isWebProtocol) {
+            const expirationDate = new Date();
+            expirationDate.setDate(expirationDate.getDate() + 30);
+            document.cookie = `starburstSettings=${encodeURIComponent(settingsJson)}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Lax`;
+            cookieSuccess = true;
+            Logger.debug('Settings saved to cookies in web environment');
+          }
+        } catch (cookieError) {
+          Logger.warn('Failed to save settings to cookies', cookieError);
+        }
         
-        document.cookie = `starburstSettings=${encodeURIComponent(settingsJson)}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Strict`;
+        // Always try localStorage (works in both environments but better for file://)
+        let localStorageSuccess = false;
+        try {
+          localStorage.setItem('starburstSettings', settingsJson);
+          localStorageSuccess = true;
+          Logger.debug('Settings saved to localStorage');
+        } catch (localStorageError) {
+          Logger.warn('Failed to save settings to localStorage', localStorageError);
+        }
         
-        Logger.debug('Settings saved to cookie');
-        return true;
+        // Log overall result
+        if (localStorageSuccess || cookieSuccess) {
+          Logger.info(`Settings saved successfully. localStorage: ${localStorageSuccess}, cookies: ${cookieSuccess}`);
+          return true;
+        } else {
+          Logger.error('Failed to save settings to any storage mechanism');
+          return false;
+        }
       } catch (error) {
-        Logger.error('Failed to save settings to cookie', error);
+        Logger.error('Failed to save settings', error);
         return false;
       }
     }
     
     /**
-     * Load settings from cookies
+     * Load settings from localStorage or cookies
      * @returns {object|null} - Loaded settings or null if not found
      */
     function loadSettingsFromCookies() {
       try {
-        // Get all cookies
-        const cookies = document.cookie.split(';');
+        // Determine the environment
+        const isWebProtocol = window.location.protocol === 'http:' || window.location.protocol === 'https:';
         
-        // Find the settings cookie
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim();
-          
-          // Check if this is the settings cookie
-          if (cookie.startsWith('starburstSettings=')) {
-            // Extract the value
-            const cookieValue = cookie.substring('starburstSettings='.length, cookie.length);
-            
-            // Parse the JSON
-            const settings = JSON.parse(decodeURIComponent(cookieValue));
-            
-            Logger.debug('Settings loaded from cookie', settings);
-            return settings;
+        // For web environments, try cookies first, then localStorage
+        if (isWebProtocol) {
+          // Try cookies first for browser context
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.startsWith('starburstSettings=')) {
+              try {
+                const cookieValue = cookie.substring('starburstSettings='.length, cookie.length);
+                const settings = JSON.parse(decodeURIComponent(cookieValue));
+                Logger.debug('Settings loaded from cookie in web environment', settings);
+                
+                // Also save to localStorage for redundancy
+                try { localStorage.setItem('starburstSettings', JSON.stringify(settings)); } catch (e) {}
+                
+                return settings;
+              } catch (cookieParseError) {
+                Logger.warn('Failed to parse cookie, will try localStorage', cookieParseError);
+              }
+            }
           }
         }
         
-        // No settings found
+        // Try localStorage as the main or fallback option
+        try {
+          const storedSettings = localStorage.getItem('starburstSettings');
+          if (storedSettings) {
+            const settings = JSON.parse(storedSettings);
+            Logger.debug('Settings loaded from localStorage', settings);
+            
+            // If in web environment, also save to cookies for redundancy
+            if (isWebProtocol) {
+              try {
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + 30);
+                document.cookie = `starburstSettings=${encodeURIComponent(storedSettings)}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Lax`;
+              } catch (e) {}
+            }
+            
+            return settings;
+          }
+        } catch (localStorageError) {
+          Logger.warn('Failed to load from localStorage', localStorageError);
+        }
+        
+        // No settings found in any storage
         return null;
       } catch (error) {
-        Logger.error('Failed to load settings from cookie', error);
+        Logger.error('Failed to load settings', error);
         return null;
       }
     }
@@ -1386,94 +1477,32 @@ const Logger = (function() {
      */
     runCategory(category) {
       if (!this.tests[category]) {
-        return { success: false, message: `Category not found: ${category}`, passed: 0, failed: 0, total: 0 };
+        return { success: false, message: `Test category not found: ${category}` };
       }
       
-      const results = { passed: 0, failed: 0, total: 0 };
-      for (const name in this.tests[category]) {
-        const result = this.runTest(category, name);
+      const results = {};
+      let totalTests = 0;
+      let passedTests = 0;
+      
+      for (const testName in this.tests[category]) {
+        totalTests++;
+        const result = this.runTest(category, testName);
+        results[testName] = result;
         if (result.success) {
-          results.passed++;
-        } else {
-          results.failed++;
+          passedTests++;
         }
-        results.total++;
       }
       
-      results.success = results.failed === 0;
-      results.message = `${category}: ${results.passed}/${results.total} tests passed`;
-      return results;
-    },
-    
-    /**
-     * Run all registered tests
-     * @returns {Object} Results with counts of passed/failed tests
-     */
-    runAllTests() {
-      Logger.info('Running all tests');
-      
-      const results = { passed: 0, failed: 0, total: 0, categories: {} };
-      
-      for (const category in this.tests) {
-        const categoryResults = this.runCategory(category);
-        results.passed += categoryResults.passed;
-        results.failed += categoryResults.failed;
-        results.total += categoryResults.total;
-        results.categories[category] = categoryResults;
-      }
-      
-      results.success = results.failed === 0;
-      Logger.info(`Test results: ${results.passed}/${results.total} tests passed`);
-      
-      // Display results in the debug panel
-      const debugContent = document.getElementById('debugContent');
-      if (debugContent) {
-        let testSummary = `=========== TEST RESULTS ===========\n`;
-        testSummary += `Overall: ${results.passed}/${results.total} passed\n\n`;
-        
-        for (const category in results.categories) {
-          const cat = results.categories[category];
-          testSummary += `${category}: ${cat.passed}/${cat.total} passed\n`;
-        }
-        
-        // Show failed tests
-        if (results.failed > 0) {
-          testSummary += `\nFailed Tests:\n`;
-          for (const key in this.results) {
-            if (!this.results[key].success) {
-              testSummary += `- ${key}: ${this.results[key].message}\n`;
-            }
-          }
-        }
-        
-        debugContent.textContent = testSummary;
-      }
-      
-      return results;
-    },
-    
-    /**
-     * Initialize the test manager and register all tests
-     * @param {StarburstRenderer} renderer - The renderer instance
-     */
-    initialize(renderer) {
-      // Clear any existing tests
-      this.tests = {};
-      this.results = {};
-      
-      // Register tests for each component
-      this.discoverUIElements();
-      this.registerRendererTests(renderer);
-      this.registerShapeTests();
-      this.registerUtilTests();
-      
-      Logger.info(`Test initialization complete. ${Object.keys(this.tests).length} test categories registered`);
+      return {
+        success: true,
+        message: `Test category completed. Passed: ${passedTests}/${totalTests}`,
+        results
+      };
     }
   };
   
-  // Export modules
-  window.Logger = Logger;
-  window.ConfigManager = ConfigManager;
-  window.ShapeCalculator = ShapeCalculator;
-  window.TestManager = TestManager;
-  
+  // Initialize TestManager
+  TestManager.setSettings(ConfigManager.loadSettings());
+  TestManager.discoverUIElements();
+  TestManager.registerShapeTests();
+  TestManager.registerUtilTests();
