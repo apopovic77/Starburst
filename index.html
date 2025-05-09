@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Starburst Designer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background-color: #222;
+      color: #eee;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    .app-container {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      z-index: 0;
+    }
+    
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .controls-dialog {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      background-color: #333;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      overflow: hidden;
+      resize: both;
+      max-height: 90vh;
+      max-width: 90vw;
+      min-height: 200px;
+      min-width: 250px;
+    }
+    
+    .dialog-header {
+      background-color: #444;
+      padding: 10px 15px;
+      cursor: move;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+    
+    .dialog-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 0;
+    }
+    
+    .dialog-buttons {
+      display: flex;
+      gap: 5px;
+    }
+    
+    .dialog-button {
+      background: none;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+    }
+    
+    .dialog-button:hover {
+      background-color: #555;
+      color: #fff;
+    }
+    
+    .dialog-content {
+      padding: 15px;
+      max-height: calc(90vh - 45px);
+      overflow-y: auto;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+      background-color: #3a3a3a;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    
+    .control-group h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #555;
+      font-size: 16px;
+      color: #fff;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #ddd;
+    }
+    
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .slider-container input[type="range"] {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background-color: #444;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    
+    .slider-container input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #4a6;
+      cursor: pointer;
+    }
+    
+    .slider-container input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #4a6;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .slider-value {
+      width: 40px;
+      text-align: center;
+      background-color: #444;
+      border-radius: 4px;
+      padding: 3px;
+      font-size: 12px;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .shape-select {
+      width: 100%;
+      padding: 8px;
+      background-color: #444;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+    }
+    
+    .shape-select:focus {
+      border-color: #4a6;
+    }
+    
+    .button-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    button {
+      background-color: #4a6;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+      flex: 1;
+      outline: none;
+    }
+    
+    button:hover {
+      background-color: #5b7;
+    }
+    
+    button:active {
+      transform: translateY(1px);
+    }
+    
+    button.secondary {
+      background-color: #46a;
+    }
+    
+    button.secondary:hover {
+      background-color: #57b;
+    }
+    
+    button.danger {
+      background-color: #a46;
+    }
+    
+    button.danger:hover {
+      background-color: #b57;
+    }
+    
+    .color-input {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .color-preview {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #555;
+    }
+    
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      overflow: hidden;
+      outline: none;
+      cursor: pointer;
+    }
+    
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+    }
+    
+    .export-section {
+      margin-top: 20px;
+      background-color: #3a3a3a;
+      padding: 15px;
+      border-radius: 6px;
+    }
+    
+    .export-section h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #555;
+      font-size: 16px;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #555;
+      margin-bottom: 15px;
+    }
+    
+    .tab {
+      padding: 8px 15px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-right: 10px;
+      font-size: 14px;
+    }
+    
+    .tab.active {
+      color: #4a6;
+      border-bottom-color: #4a6;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .status-bar {
+      background-color: #2a2a2a;
+      padding: 8px 15px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .status-message {
+      color: #aaa;
+    }
+    
+    .error-message {
+      color: #f55;
+    }
+    
+    .success-message {
+      color: #5f5;
+    }
+    
+    .debug-toggle, .test-toggle {
+      position: fixed;
+      bottom: 10px;
+      background-color: rgba(0, 0, 0, 0.5);
+      color: #aaa;
+      border: 1px solid #555;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    
+    .debug-toggle {
+      right: 10px;
+    }
+    
+    .test-toggle {
+      right: 80px;
+    }
+    
+    .debug-panel, .test-panel {
+      position: fixed;
+      bottom: 40px;
+      width: 400px;
+      height: 300px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 10px;
+      padding: 10px;
+      border-radius: 4px;
+      overflow: auto;
+      z-index: 999;
+      display: none;
+    }
+    
+    .debug-panel {
+      right: 10px;
+    }
+    
+    .test-panel {
+      right: 420px; 
+    }
+    
+    .debug-panel-header, .test-panel-header {
+      font-weight: bold;
+      text-align: center;
+      border-bottom: 1px solid #0f0;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+    }
+    
+    .test-category {
+      margin: 10px 0;
+      border: 1px solid #444;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .category-header {
+      background: #333;
+      padding: 5px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .category-name {
+      font-weight: bold;
+    }
+    
+    .test-list {
+      padding: 5px;
+      display: none;
+    }
+    
+    .test-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 5px;
+      border-bottom: 1px dotted #444;
+    }
+    
+    .test-name {
+      flex-grow: 1;
+    }
+    
+    .test-result {
+      padding: 0 5px;
+    }
+    
+    .test-result.success {
+      color: #5f5;
+    }
+    
+    .test-result.failure {
+      color: #f55;
+    }
+    
+    .test-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .test-actions button {
+      background: #333;
+      border: 1px solid #555;
+      color: #ddd;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+      flex: 1;
+      margin: 0 5px;
+    }
+    
+    .test-actions button:hover {
+      background: #444;
+    }
+    
+    .keyboard-shortcuts {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      font-size: 12px;
+      color: #aaa;
+    }
+    
+    @media (max-width: 768px) {
+      .controls-dialog {
+        width: 90%;
+        right: 5%;
+        left: 5%;
+      }
+    }
+    
+    /* Accessibility: High contrast mode */
+    @media (prefers-contrast: high) {
+      body {
+        background-color: #000;
+        color: #fff;
+      }
+      
+      .control-group, .export-section {
+        background-color: #222;
+        border: 1px solid #fff;
+      }
+      
+      button, .slider-container input[type="range"]::-webkit-slider-thumb,
+      .slider-container input[type="range"]::-moz-range-thumb {
+        background-color: #fff;
+        color: #000;
+      }
+    }
+    
+    /* Checkbox styling */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      margin-right: 10px;
+      background-color: #444;
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+      margin-right: 5px;
+      cursor: pointer;
+    }
+    
+    .checkbox-item label {
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+    
+    /* Morph progress slider that was moved */
+    .morph-progress-container {
+      margin-top: 15px;
+    }
+    
+    /* Dialog controls - minimize, maximize */
+    .dialog-minimize {
+      font-size: 16px;
+      line-height: 1;
+    }
+    
+    .dialog-maximize {
+      font-size: 14px;
+      line-height: 1;
+    }
+    
+    /* Dialog states */
+    .controls-dialog.minimized {
+      height: auto !important;
+      width: 200px !important;
+    }
+    
+    .controls-dialog.minimized .dialog-content {
+      display: none;
+    }
+    
+    .controls-dialog.maximized {
+      width: 500px !important;
+      height: 80vh !important;
+      top: 10vh !important;
+      right: calc(50% - 250px) !important;
+    }
+    
+    /* Shape selector styles */
+    .shape-selector {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(51, 51, 51, 0.9);
+      border-radius: 50px;
+      padding: 10px 15px;
+      display: flex;
+      gap: 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 90;
+    }
+    
+    .shape-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #444;
+      transition: all 0.2s ease;
+    }
+    
+    .shape-icon:hover {
+      background-color: #555;
+      transform: scale(1.1);
+    }
+    
+    .shape-icon.active {
+      background-color: #4a6;
+      box-shadow: 0 0 0 2px #fff;
+    }
+    
+    .shape-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: #eee;
+    }
+    
+    .shape-icon.active svg {
+      fill: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="canvas-container">
+      <canvas id="starburstCanvas"></canvas>
+    </div>
+    
+    <!-- Shape Selector Toolbar -->
+    <div class="shape-selector" id="shapeSelector">
+      <div class="shape-icon" data-shape="circle" title="Circle">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+      </div>
+      <div class="shape-icon" data-shape="star" title="Star">
+        <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      </div>
+      <div class="shape-icon active" data-shape="triangle" title="Triangle">
+        <svg viewBox="0 0 24 24"><polygon points="12,3 22,21 2,21"/></svg>
+      </div>
+      <div class="shape-icon" data-shape="square" title="Square">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>
+      </div>
+      <div class="shape-icon" data-shape="pentagon" title="Pentagon">
+        <svg viewBox="0 0 24 24"><polygon points="12,2 22,9 19,20 5,20 2,9"/></svg>
+      </div>
+      <div class="shape-icon" data-shape="hexagon" title="Hexagon">
+        <svg viewBox="0 0 24 24"><polygon points="12,2 21,7 21,17 12,22 3,17 3,7"/></svg>
+      </div>
+    </div>
+    
+    <div class="controls-dialog" id="controlsDialog">
+      <div class="dialog-header" id="dialogHeader">
+        <h2 class="dialog-title">Starburst Designer</h2>
+        <div class="dialog-buttons">
+          <button class="dialog-button dialog-minimize" id="minimizeBtn" title="Minimize">−</button>
+          <button class="dialog-button dialog-maximize" id="maximizeBtn" title="Maximize">□</button>
+        </div>
+      </div>
+      
+      <div class="dialog-content">
+        <div class="tabs">
+          <div class="tab active" data-tab="basic-tab">Basic</div>
+          <div class="tab" data-tab="shapes-tab">Shapes</div>
+          <div class="tab" data-tab="colors-tab">Colors</div>
+          <div class="tab" data-tab="generation-tab">Generation</div>
+          <div class="tab" data-tab="animation-tab">Animation</div>
+        </div>
+        
+        <div class="tab-content active" id="basic-tab">
+          <div class="control-group">
+            <h3>Basic Settings</h3>
+            
+            <div class="slider-container">
+              <label for="numLines">Number of Lines:</label>
+              <input type="range" id="numLines" min="10" max="200" value="60" step="1" aria-label="Number of Lines">
+              <span id="numLinesValue" class="slider-value">60</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="lineThickness">Line Thickness:</label>
+              <input type="range" id="lineThickness" min="0.5" max="5" value="1.5" step="0.1" aria-label="Line Thickness">
+              <span id="lineThicknessValue" class="slider-value">1.5</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="innerRadiusRatio">Inner Radius Ratio:</label>
+              <input type="range" id="innerRadiusRatio" min="0" max="0.9" value="0" step="0.01" aria-label="Inner Radius Ratio">
+              <span id="innerRadiusRatioValue" class="slider-value">0</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="rotation">Rotation (degrees):</label>
+              <input type="range" id="rotation" min="0" max="360" value="0" step="1" aria-label="Rotation">
+              <span id="rotationValue" class="slider-value">0</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="scale">Scale:</label>
+              <input type="range" id="scale" min="0.1" max="2" value="1" step="0.05" aria-label="Shape Scale">
+              <span id="scaleValue" class="slider-value">1</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="shapes-tab">
+          <div class="control-group">
+            <h3>Shape Controls</h3>
+            <div class="form-group">
+              <label for="startShape">Start Shape:</label>
+              <select id="startShape" class="shape-select">
+                <option value="circle">Circle</option>
+                <option value="star" selected>Star</option>
+                <option value="triangle">Triangle</option>
+                <option value="square">Square</option>
+                <option value="pentagon">Pentagon</option>
+                <option value="hexagon">Hexagon</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="endShape">End Shape:</label>
+              <select id="endShape" class="shape-select">
+                <option value="circle" selected>Circle</option>
+                <option value="star">Star</option>
+                <option value="triangle">Triangle</option>
+                <option value="square">Square</option>
+                <option value="pentagon">Pentagon</option>
+                <option value="hexagon">Hexagon</option>
+              </select>
+            </div>
+            
+            <!-- New multi-shape animation option -->
+            <div class="form-group">
+              <label for="multiShapeMode">Animation Mode:</label>
+              <select id="animationMode" class="shape-select">
+                <option value="twoShape" selected>Two Shapes</option>
+                <option value="multiShape">Multiple Shapes</option>
+              </select>
+            </div>
+            
+            <!-- New section for multiple shape selection -->
+            <div id="multiShapeControls" class="form-group" style="display: none;">
+              <label>Select shapes to include:</label>
+              <div class="checkbox-group">
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapeCircle" value="circle" checked>
+                  <label for="shapeCircle">Circle</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapeStar" value="star" checked>
+                  <label for="shapeStar">Star</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapeTriangle" value="triangle" checked>
+                  <label for="shapeTriangle">Triangle</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapeSquare" value="square" checked>
+                  <label for="shapeSquare">Square</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapePentagon" value="pentagon" checked>
+                  <label for="shapePentagon">Pentagon</label>
+                </div>
+                <div class="checkbox-item">
+                  <input type="checkbox" id="shapeHexagon" value="hexagon" checked>
+                  <label for="shapeHexagon">Hexagon</label>
+                </div>
+              </div>
+            </div>
+            
+            <div class="slider-container">
+              <label for="morphProgress">Morph Progress:</label>
+              <input type="range" id="morphProgress" min="0" max="1" value="0" step="0.01" aria-label="Morph Progress">
+              <span id="morphProgressValue" class="slider-value">0</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="colors-tab">
+          <div class="control-group">
+            <h3>Color Settings</h3>
+            
+            <div class="color-input">
+              <label for="centerColor">Center Color:</label>
+              <input type="color" id="centerColor" value="#ffffff" aria-label="Center Color">
+              <div id="centerColorPreview" class="color-preview" style="background-color: #ffffff;"></div>
+            </div>
+            
+            <div class="color-input">
+              <label for="outerColor">Outer Color:</label>
+              <input type="color" id="outerColor" value="#aaaaaa" aria-label="Outer Color">
+              <div id="outerColorPreview" class="color-preview" style="background-color: #aaaaaa;"></div>
+            </div>
+            
+            <div class="color-input">
+              <label for="backgroundColor">Background Color:</label>
+              <input type="color" id="backgroundColor" value="#000000" aria-label="Background Color">
+              <div id="backgroundColorPreview" class="color-preview" style="background-color: #000000;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="generation-tab">
+          <div class="control-group">
+            <h3>Generation Strategy</h3>
+            <div class="form-group">
+              <label for="generationStrategy">Pattern Type:</label>
+              <select id="generationStrategy" class="shape-select">
+                <option value="starburst" selected>Starburst (Lines from Center)</option>
+                <option value="concentric">Concentric Shapes</option>
+                <option value="grid">Grid Pattern</option>
+                <option value="symmetrical">Symmetrical Pattern</option>
+                <option value="fractal">Fractal Pattern</option>
+              </select>
+            </div>
+            
+            <div id="centerStyleControls">
+              <h4>Center Style</h4>
+              <div class="form-group">
+                <label for="centerStyle">Center Type:</label>
+                <select id="centerStyle" class="shape-select">
+                  <option value="dot" selected>Dot</option>
+                  <option value="none">None</option>
+                  <option value="hole">Hole</option>
+                  <option value="custom">Custom Shape</option>
+                </select>
+              </div>
+              
+              <div class="slider-container">
+                <label for="centerSize">Center Size:</label>
+                <input type="range" id="centerSize" min="0" max="20" value="2" step="0.5" aria-label="Center Size">
+                <span id="centerSizeValue" class="slider-value">2</span>
+              </div>
+              
+              <div class="slider-container">
+                <label for="centerGlowSize">Glow Size:</label>
+                <input type="range" id="centerGlowSize" min="0" max="50" value="5" step="1" aria-label="Center Glow Size">
+                <span id="centerGlowSizeValue" class="slider-value">5</span>
+              </div>
+              
+              <div class="slider-container">
+                <label for="centerGlowOpacity">Glow Opacity:</label>
+                <input type="range" id="centerGlowOpacity" min="0" max="1" value="0.5" step="0.05" aria-label="Center Glow Opacity">
+                <span id="centerGlowOpacityValue" class="slider-value">0.5</span>
+              </div>
+            </div>
+            
+            <div id="modeSpecificControls" class="form-group">
+              <!-- This section will be dynamically populated based on selected generation strategy -->
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="animation-tab">
+          <div class="control-group">
+            <h3>Animation</h3>
+            
+            <div class="button-container">
+              <button id="animateBtn" aria-label="Toggle Animation">Animate Morph</button>
+              <button id="resetBtn" class="secondary" aria-label="Reset Settings">Reset</button>
+            </div>
+            
+            <div class="slider-container">
+              <label for="animationSpeed">Animation Speed:</label>
+              <input type="range" id="animationSpeed" min="0.5" max="5" value="2" step="0.1" aria-label="Animation Speed">
+              <span id="animationSpeedValue" class="slider-value">2</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="export-section">
+          <h3>Export</h3>
+          <div class="button-container">
+            <button id="saveAsSVG" class="secondary" aria-label="Save as SVG">Save as SVG</button>
+            <button id="shareBtn" class="secondary" aria-label="Share Design">Share</button>
+          </div>
+        </div>
+        
+        <div class="status-bar">
+          <span id="statusMessage" class="status-message">Ready</span>
+          <span id="fpsCounter"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="keyboard-shortcuts">
+    Press Alt+D to toggle debug panel | Space to toggle animation | Ctrl+H to toggle controls | Ctrl+T to run tests
+  </div>
+  
+  <div id="debugPanel" class="debug-panel">
+    <div class="debug-panel-header">Debug Panel</div>
+    <pre id="debugContent"></pre>
+  </div>
+  
+  <button id="debugToggle" class="debug-toggle">Debug</button>
+  
+  <!-- Test Panel -->
+  <div id="testPanel" class="test-panel">
+    <div class="test-panel-header">Test Panel</div>
+    <div id="testCategories"></div>
+    <div class="test-actions">
+      <button id="runAllTestsBtn">Run All Tests</button>
+      <button id="runFailedTestsBtn">Re-run Failed</button>
+      <button id="addCustomTestBtn">Add Custom Test</button>
+    </div>
+  </div>
+  
+  <button id="testToggle" class="test-toggle">Tests</button>
+
+  <!-- JavaScript wird in separaten Dateien eingebunden -->
+  <script src="modules.js"></script>
+  <script src="renderer.js"></script>
+  <script src="initialization.js"></script>
+</body>
+</html>
