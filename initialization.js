@@ -12,10 +12,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const runAllTestsBtn = document.getElementById('runAllTestsBtn');
     const runFailedTestsBtn = document.getElementById('runFailedTestsBtn');
     const addCustomTestBtn = document.getElementById('addCustomTestBtn');
+    const copyTestResultsBtn = document.getElementById('copyTestResultsBtn');
     
     // Shape selector elements
     const shapeSelector = document.getElementById('shapeSelector');
     const shapeIcons = document.querySelectorAll('.shape-icon');
+    
+    // Strategy selector elements
+    const strategySelector = document.getElementById('strategySelector');
+    const strategyIcons = document.querySelectorAll('.strategy-icon');
     
     // Dialog elements
     const controlsDialog = document.getElementById('controlsDialog');
@@ -429,6 +434,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const innerRadiusRatioValue = document.getElementById('innerRadiusRatioValue');
     const rotationSlider = document.getElementById('rotation');
     const rotationValue = document.getElementById('rotationValue');
+    const canvasRotationSlider = document.getElementById('canvasRotation');
+    const canvasRotationValue = document.getElementById('canvasRotationValue');
     const scaleSlider = document.getElementById('scale');
     const scaleValue = document.getElementById('scaleValue');
     const morphProgressSlider = document.getElementById('morphProgress');
@@ -445,6 +452,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const resetBtn = document.getElementById('resetBtn');
     const animationSpeedSlider = document.getElementById('animationSpeed');
     const animationSpeedValue = document.getElementById('animationSpeedValue');
+    const toggleAnimationDurationInput = document.getElementById('toggleAnimDuration');
+    const toggleAnimDurationValue = document.getElementById('toggleAnimDurationValue');
     const saveAsSVGBtn = document.getElementById('saveAsSVG');
     const shareBtn = document.getElementById('shareBtn');
     const canvas = document.getElementById('starburstCanvas');
@@ -462,6 +471,39 @@ document.addEventListener('DOMContentLoaded', function() {
     const centerGlowOpacitySlider = document.getElementById('centerGlowOpacity');
     const centerGlowOpacityValue = document.getElementById('centerGlowOpacityValue');
     const modeSpecificControls = document.getElementById('modeSpecificControls');
+    
+    // Corner radius control
+    const cornerRadiusSlider = document.getElementById('cornerRadius');
+    const cornerRadiusValue = document.getElementById('cornerRadiusValue');
+    
+    // Corner Radius Method Select
+    const cornerRadiusMethodSelect = document.getElementById('cornerRadiusMethod');
+    
+    // Typography controls
+    const titleTextInput = document.getElementById('titleText');
+    const subtitleTextInput = document.getElementById('subtitleText');
+    const fontButtons = document.querySelectorAll('.font-button');
+    const fontWeightButtons = document.querySelectorAll('.font-weight-button');
+    const textCaseToggle = document.getElementById('textCaseToggle');
+    const positionButtons = document.querySelectorAll('.position-button');
+    const textSizeSlider = document.getElementById('textSize');
+    const textSizeValue = document.getElementById('textSizeValue');
+    const charSpacingSlider = document.getElementById('charSpacing');
+    const charSpacingValue = document.getElementById('charSpacingValue');
+    const lineSpacingSlider = document.getElementById('lineSpacing');
+    const lineSpacingValue = document.getElementById('lineSpacingValue');
+    const textColorInput = document.getElementById('textColor');
+    const textColorPreview = document.getElementById('textColorPreview');
+    
+    // Typography toolbar
+    const typographyToolbar = document.getElementById('typographyToolbar');
+    const typographyIcons = document.querySelectorAll('.typography-icon');
+    
+    // Displacement controls
+    const displacementXSlider = document.getElementById('displacementX');
+    const displacementXValue = document.getElementById('displacementXValue');
+    const displacementYSlider = document.getElementById('displacementY');
+    const displacementYValue = document.getElementById('displacementYValue');
     
     // Check if all required elements exist
     function verifyElementsExist() {
@@ -506,7 +548,10 @@ document.addEventListener('DOMContentLoaded', function() {
       lineThickness: parseFloat(lineThicknessSlider.value),
       innerRadiusRatio: parseFloat(innerRadiusRatioSlider.value),
       rotation: parseInt(rotationSlider.value),
+      canvasRotation: parseInt(canvasRotationSlider.value),
       scale: parseFloat(scaleSlider.value),
+      displacementX: 0,
+      displacementY: 0,
       morphProgress: 0,
       startShape: 'triangle',
       endShape: 'circle',
@@ -518,12 +563,32 @@ document.addEventListener('DOMContentLoaded', function() {
       selectedShapes: ['triangle', 'circle'],
       currentShapeIndex: 0,
       nextShapeIndex: 1,
-      // New settings
       generationStrategy: 'starburst',
-      centerStyle: 'dot',
+      centerStyle: 'none',
       centerSize: parseFloat(centerSizeSlider.value),
-      centerGlowSize: parseFloat(centerGlowSizeSlider.value),
-      centerGlowOpacity: parseFloat(centerGlowOpacitySlider.value)
+      centerGlowSize: 0,
+      centerGlowOpacity: 0,
+      cornerRadius: 0,
+      cornerRadiusMethod: 'arc',
+      showText: true,
+      titleText: 'STARBURST',
+      subtitleText: 'geometric designer',
+      textSize: 40,
+      textColor: '#ffffff',
+      fontFamily: 'metropolis',
+      fontWeight: 'regular',
+      charSpacing: 0,
+      lineSpacing: 1.5,
+      textPosition: 'center',
+      textCase: 'normal',
+      concentricLayers: 5,
+      concentricSpacing: 0.5,
+      gridSize: 5,
+      gridStyle: 'square',
+      symmetryFactor: 4,
+      symmetryType: 'radial',
+      fractalDepth: 3,
+      fractalScale: 0.5
     };
     
     // Helper function to apply a setting and update the renderer
@@ -532,11 +597,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update settings object
         settings[key] = value;
         
-        // Update renderer
+        // Update TestManager's reference to settings
+        TestManager.setSettings(settings);
+        
+        // Update renderer with the setting
         if (renderer && doRender) {
           const updateObj = { [key]: value };
           Logger.debug(`Applying setting: ${key} = ${value}`, updateObj);
           renderer.updateOptions(updateObj).render();
+        }
+        
+        // Save to cookies when important settings change
+        const importantSettings = [
+          'fontFamily', 'textSize', 'textPosition',
+          'displacementX', 'displacementY',
+          'cornerRadius', 'cornerRadiusMethod',
+          'startShape', 'endShape', 'generationStrategy', 'scale'
+        ];
+        
+        if (importantSettings.includes(key)) {
+          ConfigManager.saveSettingsToCookies(settings);
         }
         
         return true;
@@ -556,6 +636,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (urlSettings.lineThickness) lineThicknessSlider.value = urlSettings.lineThickness;
       if (urlSettings.innerRadiusRatio) innerRadiusRatioSlider.value = urlSettings.innerRadiusRatio;
       if (urlSettings.rotation) rotationSlider.value = urlSettings.rotation;
+      if (urlSettings.canvasRotation) canvasRotationSlider.value = urlSettings.canvasRotation;
       if (urlSettings.morphProgress) morphProgressSlider.value = urlSettings.morphProgress;
       if (urlSettings.startShape) startShapeSelect.value = urlSettings.startShape;
       if (urlSettings.endShape) endShapeSelect.value = urlSettings.endShape;
@@ -597,6 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (savedSettings.lineThickness) lineThicknessSlider.value = savedSettings.lineThickness;
         if (savedSettings.innerRadiusRatio) innerRadiusRatioSlider.value = savedSettings.innerRadiusRatio;
         if (savedSettings.rotation) rotationSlider.value = savedSettings.rotation;
+        if (savedSettings.canvasRotation) canvasRotationSlider.value = savedSettings.canvasRotation;
         if (savedSettings.morphProgress) morphProgressSlider.value = savedSettings.morphProgress;
         if (savedSettings.startShape) startShapeSelect.value = savedSettings.startShape;
         if (savedSettings.endShape) endShapeSelect.value = savedSettings.endShape;
@@ -604,6 +686,34 @@ document.addEventListener('DOMContentLoaded', function() {
         if (savedSettings.outerColor) outerColorInput.value = savedSettings.outerColor;
         if (savedSettings.backgroundColor) backgroundColorInput.value = savedSettings.backgroundColor;
         if (savedSettings.animationSpeed) animationSpeedSlider.value = savedSettings.animationSpeed;
+        if (savedSettings.toggleAnimDuration) toggleAnimationDurationInput.value = savedSettings.toggleAnimDuration;
+      }
+      else {
+        // Try loading from cookies
+        const cookieSettings = ConfigManager.loadSettingsFromCookies();
+        if (cookieSettings) {
+          settings = { ...settings, ...cookieSettings };
+          
+          // Update UI with cookie settings
+          if (cookieSettings.startShape) startShapeSelect.value = cookieSettings.startShape;
+          if (cookieSettings.endShape) endShapeSelect.value = cookieSettings.endShape;
+          if (cookieSettings.scale && scaleSlider) scaleSlider.value = cookieSettings.scale;
+          if (cookieSettings.displacementX && displacementXSlider) displacementXSlider.value = cookieSettings.displacementX;
+          if (cookieSettings.displacementY && displacementYSlider) displacementYSlider.value = cookieSettings.displacementY;
+          if (cookieSettings.cornerRadius && cornerRadiusSlider) cornerRadiusSlider.value = cookieSettings.cornerRadius;
+          if (cookieSettings.cornerRadiusMethod && cornerRadiusMethodSelect) cornerRadiusMethodSelect.value = cookieSettings.cornerRadiusMethod;
+          
+          // Show a status message that settings were restored from cookies
+          setTimeout(() => {
+            const statusMessage = document.getElementById('statusMessage');
+            if (statusMessage) {
+              statusMessage.textContent = 'Settings restored from cookies';
+              setTimeout(() => {
+                statusMessage.textContent = 'Ready';
+              }, 2000);
+            }
+          }, 1000);
+        }
       }
     }
     
@@ -612,6 +722,9 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       renderer = new StarburstRenderer(canvas, ShapeCalculator, settings);
       Logger.info('Renderer initialized successfully');
+      
+      // Set settings reference in TestManager
+      TestManager.setSettings(settings);
       
       // Initialize TestManager with the renderer
       TestManager.initialize(renderer);
@@ -627,9 +740,26 @@ document.addEventListener('DOMContentLoaded', function() {
       lineThicknessValue.textContent = settings.lineThickness.toFixed(1);
       innerRadiusRatioValue.textContent = settings.innerRadiusRatio.toFixed(2);
       rotationValue.textContent = settings.rotation;
+      canvasRotationValue.textContent = settings.canvasRotation;
       scaleValue.textContent = settings.scale.toFixed(2);
       morphProgressValue.textContent = settings.morphProgress.toFixed(2);
       animationSpeedValue.textContent = settings.animationSpeed.toFixed(1);
+      if (toggleAnimDurationValue && 'toggleAnimDuration' in settings) {
+        toggleAnimDurationValue.textContent = settings.toggleAnimDuration.toFixed(1);
+      }
+      
+      // Update displacement value displays
+      if (displacementXValue) {
+        displacementXValue.textContent = settings.displacementX;
+      }
+      if (displacementYValue) {
+        displacementYValue.textContent = settings.displacementY;
+      }
+      
+      // Update corner radius value display
+      if (cornerRadiusValue) {
+        cornerRadiusValue.textContent = settings.cornerRadius.toFixed(2);
+      }
       
       // New UI values
       centerSizeValue.textContent = settings.centerSize.toFixed(1);
@@ -660,8 +790,27 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     
+    // Update the strategy selector to highlight the active strategy
+    function updateStrategySelector(strategyName) {
+      strategyIcons.forEach(icon => {
+        if (icon.dataset.strategy === strategyName) {
+          icon.classList.add('active');
+        } else {
+          icon.classList.remove('active');
+        }
+      });
+      
+      // Also update the drop-down select for backward compatibility
+      if (generationStrategySelect) {
+        generationStrategySelect.value = strategyName;
+      }
+    }
+    
     // Initial UI update
     updateUIValues();
+    
+    // Also update strategy selector
+    updateStrategySelector(settings.generationStrategy);
     
     // Shape selector click handler
     if (shapeSelector) {
@@ -677,6 +826,32 @@ document.addEventListener('DOMContentLoaded', function() {
           
           // Log the change
           Logger.info(`Shape changed to: ${shapeName}`);
+        });
+      });
+    }
+    
+    // Strategy selector click handler
+    if (strategySelector) {
+      strategyIcons.forEach(icon => {
+        setupControlListener(icon, 'click', () => {
+          const strategyName = icon.dataset.strategy;
+          
+          // Set the generation strategy
+          applySetting('generationStrategy', strategyName);
+          
+          // Update the UI
+          updateStrategySelector(strategyName);
+          
+          // Also update the dropdown in the dialog
+          if (generationStrategySelect) {
+            generationStrategySelect.value = strategyName;
+          }
+          
+          // Update mode-specific controls
+          updateModeSpecificControls();
+          
+          // Log the change
+          Logger.info(`Generation strategy changed to: ${strategyName}`);
         });
       });
     }
@@ -706,11 +881,23 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     
-    // Basic tab controls
+    // Special handling for line density slider to make it appropriately affect all pattern types
     setupControlListener(numLinesSlider, 'input', () => {
       const value = parseInt(numLinesSlider.value);
+      
+      // Update settings
+      settings.numLines = value;
+      
+      // Line Density has different meanings for different generation strategies:
+      // - For starburst: literal number of lines radiating from center
+      // - For concentric: number of concentric rings (divided by 2)
+      // - For other patterns: controls detail level
       applySetting('numLines', value);
+      
+      // Update UI displays
       updateUIValues();
+      
+      Logger.debug(`Applied Line Density of ${value} to ${settings.generationStrategy} pattern`);
     });
     
     setupControlListener(lineThicknessSlider, 'input', () => {
@@ -728,6 +915,12 @@ document.addEventListener('DOMContentLoaded', function() {
     setupControlListener(rotationSlider, 'input', () => {
       const value = parseInt(rotationSlider.value);
       applySetting('rotation', value);
+      updateUIValues();
+    });
+    
+    setupControlListener(canvasRotationSlider, 'input', () => {
+      const value = parseInt(canvasRotationSlider.value);
+      applySetting('canvasRotation', value);
       updateUIValues();
     });
     
@@ -770,6 +963,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners for new controls
     setupControlListener(generationStrategySelect, 'change', () => {
       applySetting('generationStrategy', generationStrategySelect.value);
+      updateStrategySelector(generationStrategySelect.value);
       updateModeSpecificControls();
     });
     
@@ -812,7 +1006,10 @@ document.addEventListener('DOMContentLoaded', function() {
         lineThickness: 1.5,
         innerRadiusRatio: 0,
         rotation: 0,
+        canvasRotation: 0,
         scale: 1,
+        displacementX: 0,
+        displacementY: 0,
         morphProgress: 0,
         startShape: 'triangle',
         endShape: 'circle',
@@ -824,12 +1021,32 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedShapes: ['triangle', 'circle'],
         currentShapeIndex: 0,
         nextShapeIndex: 1,
-        // New settings
         generationStrategy: 'starburst',
-        centerStyle: 'dot',
+        centerStyle: 'none',
         centerSize: 2,
-        centerGlowSize: 5,
-        centerGlowOpacity: 0.5
+        centerGlowSize: 0,
+        centerGlowOpacity: 0,
+        cornerRadius: 0,
+        cornerRadiusMethod: 'arc',
+        showText: true,
+        titleText: 'STARBURST',
+        subtitleText: 'geometric designer',
+        textSize: 40,
+        textColor: '#ffffff',
+        fontFamily: 'metropolis',
+        fontWeight: 'regular',
+        charSpacing: 0,
+        lineSpacing: 1.5,
+        textPosition: 'center',
+        textCase: 'normal',
+        concentricLayers: 5,
+        concentricSpacing: 0.5,
+        gridSize: 5,
+        gridStyle: 'square',
+        symmetryFactor: 4,
+        symmetryType: 'radial',
+        fractalDepth: 3,
+        fractalScale: 0.5
       };
       
       // Update UI controls
@@ -837,7 +1054,10 @@ document.addEventListener('DOMContentLoaded', function() {
       lineThicknessSlider.value = settings.lineThickness;
       innerRadiusRatioSlider.value = settings.innerRadiusRatio;
       rotationSlider.value = settings.rotation;
+      canvasRotationSlider.value = settings.canvasRotation;
       scaleSlider.value = settings.scale;
+      displacementXSlider.value = settings.displacementX;
+      displacementYSlider.value = settings.displacementY;
       morphProgressSlider.value = settings.morphProgress;
       startShapeSelect.value = settings.startShape;
       endShapeSelect.value = settings.endShape;
@@ -939,101 +1159,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to update mode-specific controls based on selected generation strategy
     function updateModeSpecificControls() {
+      // Check if modeSpecificControls element exists
+      if (!modeSpecificControls) {
+        Logger.warn('modeSpecificControls element not found');
+        return;
+      }
+      
       // Clear previous controls
       modeSpecificControls.innerHTML = '';
       
-      // Add strategy-specific controls
-      switch(settings.generationStrategy) {
-        case 'concentric':
-          modeSpecificControls.innerHTML = `
-            <h4>Concentric Settings</h4>
-            <div class="slider-container">
-              <label for="concentricLayers">Number of Layers:</label>
-              <input type="range" id="concentricLayers" min="2" max="20" value="5" step="1">
-              <span id="concentricLayersValue" class="slider-value">5</span>
-            </div>
-            <div class="slider-container">
-              <label for="concentricSpacing">Layer Spacing:</label>
-              <input type="range" id="concentricSpacing" min="0.1" max="1" value="0.5" step="0.05">
-              <span id="concentricSpacingValue" class="slider-value">0.5</span>
-            </div>
-          `;
-          break;
-          
-        case 'grid':
-          modeSpecificControls.innerHTML = `
-            <h4>Grid Settings</h4>
-            <div class="slider-container">
-              <label for="gridSize">Grid Size:</label>
-              <input type="range" id="gridSize" min="2" max="20" value="5" step="1">
-              <span id="gridSizeValue" class="slider-value">5</span>
-            </div>
-            <div class="form-group">
-              <label for="gridStyle">Grid Style:</label>
-              <select id="gridStyle" class="shape-select">
-                <option value="square" selected>Square</option>
-                <option value="hexagonal">Hexagonal</option>
-                <option value="triangular">Triangular</option>
-              </select>
-            </div>
-          `;
-          break;
-          
-        case 'symmetrical':
-          modeSpecificControls.innerHTML = `
-            <h4>Symmetry Settings</h4>
-            <div class="slider-container">
-              <label for="symmetryFactor">Symmetry Factor:</label>
-              <input type="range" id="symmetryFactor" min="2" max="12" value="4" step="1">
-              <span id="symmetryFactorValue" class="slider-value">4</span>
-            </div>
-            <div class="form-group">
-              <label for="symmetryType">Symmetry Type:</label>
-              <select id="symmetryType" class="shape-select">
-                <option value="radial" selected>Radial</option>
-                <option value="reflective">Reflective</option>
-                <option value="translational">Translational</option>
-              </select>
-            </div>
-          `;
-          break;
-          
-        case 'fractal':
-          modeSpecificControls.innerHTML = `
-            <h4>Fractal Settings</h4>
-            <div class="slider-container">
-              <label for="fractalDepth">Recursion Depth:</label>
-              <input type="range" id="fractalDepth" min="1" max="5" value="3" step="1">
-              <span id="fractalDepthValue" class="slider-value">3</span>
-            </div>
-            <div class="slider-container">
-              <label for="fractalScale">Scale Factor:</label>
-              <input type="range" id="fractalScale" min="0.1" max="0.7" value="0.5" step="0.05">
-              <span id="fractalScaleValue" class="slider-value">0.5</span>
-            </div>
-          `;
-          break;
-      }
-      
-      // Add event listeners for new controls as needed
-      if (settings.generationStrategy !== 'starburst') {
-        const newControlInputs = modeSpecificControls.querySelectorAll('input, select');
-        newControlInputs.forEach(input => {
-          input.addEventListener('input', () => {
-            const controlId = input.id;
-            const value = input.type === 'range' ? parseFloat(input.value) : input.value;
-            settings[controlId] = value;
-            
-            // Update any corresponding value display
-            const valueDisplay = document.getElementById(`${controlId}Value`);
-            if (valueDisplay) {
-              valueDisplay.textContent = typeof value === 'number' ? value.toString() : value;
-            }
-            
-            renderer.updateOptions({ [controlId]: value }).render();
-          });
-        });
-      }
+      // Don't add any mode-specific controls
+      // We're using the Basic tab controls for all generation strategies
     }
     
     // Function to collect selected shapes from checkboxes and update settings
@@ -1143,5 +1279,436 @@ document.addEventListener('DOMContentLoaded', function() {
       const value = parseFloat(scaleSlider.value);
       applySetting('scale', value);
       updateUIValues();
+    });
+    
+    // Toggle Animation for Sliders
+    const toggleAnimations = {};
+    let toggleAnimationDuration = parseFloat(toggleAnimationDurationInput.value) * 1000; // Convert to milliseconds
+    
+    // Make sure toggleAnimDuration is in settings
+    settings.toggleAnimDuration = parseFloat(toggleAnimationDurationInput.value);
+    
+    // Update the animation duration when the slider changes
+    toggleAnimationDurationInput.addEventListener('input', function() {
+      const value = parseFloat(this.value);
+      // Log exact values for debugging
+      Logger.debug(`Toggle Animation Duration changed: raw=${this.value}, parsed=${value}`);
+      // Update the setting value
+      applySetting('toggleAnimDuration', value);
+      // Also update the local variable for animation loops
+      toggleAnimationDuration = value * 1000; // Convert to milliseconds
+      toggleAnimDurationValue.textContent = value;
+    });
+    
+    // Set up toggle switches for each slider
+    document.querySelectorAll('.toggle-switch').forEach(toggle => {
+      const container = toggle.closest('.toggle-container');
+      if (!container) return;
+      
+      const sliderId = container.dataset.sliderId;
+      if (!sliderId) return;
+      
+      const slider = document.getElementById(sliderId);
+      if (!slider) return;
+      
+      const valueDisplay = document.getElementById(`${sliderId}Value`);
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      
+      // Setup toggle click event
+      toggle.addEventListener('click', function() {
+        this.classList.toggle('active');
+        this.setAttribute('aria-checked', this.classList.contains('active'));
+        
+        if (this.classList.contains('active')) {
+          // Start animation
+          if (toggleAnimations[sliderId]) {
+            clearInterval(toggleAnimations[sliderId].interval);
+          }
+          
+          // Set up the animation
+          let direction = 1;
+          let currentValue = parseFloat(slider.value);
+          
+          toggleAnimations[sliderId] = {
+            interval: setInterval(() => {
+              // Calculate new value
+              currentValue += direction * (max - min) / (toggleAnimationDuration / 100);
+              
+              // Check bounds and reverse direction if needed
+              if (currentValue >= max) {
+                currentValue = max;
+                direction = -1;
+              } else if (currentValue <= min) {
+                currentValue = min;
+                direction = 1;
+              }
+              
+              // Update slider and trigger change event
+              slider.value = currentValue;
+              slider.dispatchEvent(new Event('input'));
+              
+              // Update value display
+              if (valueDisplay) {
+                if (Number.isInteger(currentValue)) {
+                  valueDisplay.textContent = currentValue.toString();
+                } else {
+                  valueDisplay.textContent = currentValue.toFixed(2);
+                }
+              }
+            }, 100)
+          };
+        } else {
+          // Stop animation
+          if (toggleAnimations[sliderId]) {
+            clearInterval(toggleAnimations[sliderId].interval);
+            toggleAnimations[sliderId] = null;
+          }
+        }
+      });
+      
+      // Support keyboard navigation
+      toggle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.click();
+        }
+      });
+    });
+    
+    // Stop all animations when window loses focus
+    window.addEventListener('blur', function() {
+      Object.keys(toggleAnimations).forEach(key => {
+        if (toggleAnimations[key]) {
+          clearInterval(toggleAnimations[key].interval);
+          
+          const toggle = document.querySelector(`.toggle-container[data-slider-id="${key}"] .toggle-switch`);
+          if (toggle) {
+            toggle.classList.remove('active');
+            toggle.setAttribute('aria-checked', 'false');
+          }
+          
+          toggleAnimations[key] = null;
+        }
+      });
+    });
+    
+    // Copy test results to clipboard
+    copyTestResultsBtn.addEventListener('click', () => {
+      // Generate a summary of test results
+      let resultText = "=== Starburst Designer Test Results ===\n\n";
+      let totalPassed = 0;
+      let totalFailed = 0;
+      let totalTests = 0;
+      
+      // Gather results by category
+      for (const category in TestManager.tests) {
+        let categoryPassed = 0;
+        let categoryFailed = 0;
+        
+        resultText += `Category: ${category}\n`;
+        
+        for (const testName in TestManager.tests[category]) {
+          const resultKey = `${category}.${testName}`;
+          const result = TestManager.results[resultKey];
+          totalTests++;
+          
+          if (result) {
+            if (result.success) {
+              resultText += `✅ ${testName}\n`;
+              categoryPassed++;
+              totalPassed++;
+            } else {
+              resultText += `❌ ${testName}: ${result.message}\n`;
+              categoryFailed++;
+              totalFailed++;
+            }
+          } else {
+            resultText += `⚪ ${testName}: Not run\n`;
+          }
+        }
+        
+        resultText += `${category}: ${categoryPassed} passed, ${categoryFailed} failed\n\n`;
+      }
+      
+      // Add summary
+      resultText += `=== Summary ===\n`;
+      resultText += `Total: ${totalPassed}/${totalTests} tests passed (${totalFailed} failed)\n`;
+      resultText += `Pass rate: ${Math.round((totalPassed / Math.max(1, totalTests)) * 100)}%\n`;
+      
+      // Add current timestamp
+      resultText += `\nGenerated: ${new Date().toLocaleString()}\n`;
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(resultText)
+        .then(() => {
+          const statusMessage = document.getElementById('statusMessage');
+          if (statusMessage) {
+            statusMessage.textContent = 'Test results copied to clipboard';
+            statusMessage.className = 'status-message success-message';
+            setTimeout(() => {
+              statusMessage.className = 'status-message';
+              statusMessage.textContent = 'Ready';
+            }, 2000);
+          }
+          
+          // Also show in debug panel
+          if (debugContent) {
+            debugContent.textContent = 'Test results copied to clipboard:\n\n' + resultText;
+            if (debugPanel.style.display === 'none') {
+              debugToggle.click();
+            }
+          }
+        })
+        .catch(err => {
+          Logger.error('Failed to copy test results', err);
+          alert('Failed to copy test results. See console for details.');
+        });
+    });
+    
+    // Corner Radius Slider
+    setupControlListener(cornerRadiusSlider, 'input', () => {
+      const value = parseFloat(cornerRadiusSlider.value);
+      applySetting('cornerRadius', value);
+      cornerRadiusValue.textContent = value.toFixed(2);
+    });
+    
+    // Corner Radius Method Select
+    setupControlListener(cornerRadiusMethodSelect, 'change', () => {
+      const method = cornerRadiusMethodSelect.value;
+      applySetting('cornerRadiusMethod', method);
+      Logger.info('Corner radius method changed', { method });
+      
+      // Immediately re-render with the new method
+      renderer.render();
+    });
+    
+    // Typography controls
+    
+    // Title text input
+    setupControlListener(titleTextInput, 'input', () => {
+      applySetting('titleText', titleTextInput.value);
+    });
+    
+    // Subtitle text input
+    setupControlListener(subtitleTextInput, 'input', () => {
+      applySetting('subtitleText', subtitleTextInput.value);
+    });
+    
+    // Font family buttons
+    const handwritingFonts = ['saintdelafield', 'herrvon', 'rougescript'];
+    
+    fontButtons.forEach(button => {
+      setupControlListener(button, 'click', () => {
+        // Remove active class from all buttons
+        fontButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
+        
+        const fontFamily = button.dataset.font;
+        // Apply the font family setting
+        applySetting('fontFamily', fontFamily);
+        
+        // For handwriting fonts, disable case toggling and force lowercase
+        const isHandwritingFont = handwritingFonts.includes(fontFamily);
+        if (isHandwritingFont) {
+          // If case toggle is active, turn it off
+          if (textCaseToggle.classList.contains('active')) {
+            textCaseToggle.classList.remove('active');
+            applySetting('textCase', 'normal');
+          }
+          // Add disabled styling to case toggle, but don't completely disable
+          // since we now allow camelCase for handwriting fonts
+          textCaseToggle.classList.add('modified-for-handwriting');
+          
+          // Update status message
+          const statusMessage = document.getElementById('statusMessage');
+          if (statusMessage) {
+            statusMessage.textContent = 'Title Case enabled for handwriting fonts';
+            setTimeout(() => {
+              statusMessage.textContent = 'Ready';
+            }, 2000);
+          }
+        } else {
+          // Re-enable the case toggle
+          textCaseToggle.classList.remove('disabled');
+          textCaseToggle.classList.remove('modified-for-handwriting');
+        }
+      });
+    });
+    
+    // Font weight buttons
+    fontWeightButtons.forEach(button => {
+      setupControlListener(button, 'click', () => {
+        // Remove active class from all buttons
+        fontWeightButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
+        // Apply the font weight setting
+        applySetting('fontWeight', button.dataset.weight);
+      });
+    });
+    
+    // Text case toggle
+    setupControlListener(textCaseToggle, 'click', () => {
+      textCaseToggle.classList.toggle('active');
+      const isUppercase = textCaseToggle.classList.contains('active');
+      applySetting('textCase', isUppercase ? 'uppercase' : 'normal');
+    });
+    
+    // Position buttons
+    positionButtons.forEach(button => {
+      setupControlListener(button, 'click', () => {
+        // Remove active class from all buttons
+        positionButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
+        // Apply the position setting
+        applySetting('textPosition', button.dataset.position);
+      });
+    });
+    
+    // Text size slider
+    setupControlListener(textSizeSlider, 'input', () => {
+      const value = parseInt(textSizeSlider.value);
+      applySetting('textSize', value);
+      textSizeValue.textContent = value;
+    });
+    
+    // Character spacing slider
+    setupControlListener(charSpacingSlider, 'input', () => {
+      const value = parseFloat(charSpacingSlider.value);
+      applySetting('charSpacing', value);
+      charSpacingValue.textContent = value.toFixed(2);
+    });
+    
+    // Line spacing slider
+    setupControlListener(lineSpacingSlider, 'input', () => {
+      const value = parseFloat(lineSpacingSlider.value);
+      applySetting('lineSpacing', value);
+      lineSpacingValue.textContent = value.toFixed(1);
+    });
+    
+    // Text color input
+    setupControlListener(textColorInput, 'input', () => {
+      applySetting('textColor', textColorInput.value);
+      textColorPreview.style.backgroundColor = textColorInput.value;
+    });
+    
+    // Typography toolbar icons
+    typographyIcons.forEach(icon => {
+      setupControlListener(icon, 'click', () => {
+        const type = icon.dataset.typography;
+        
+        switch (type) {
+          case 'metropolis':
+          case 'worksans':
+          case 'oswald':
+          case 'roboto':
+          case 'crimsonpro':
+          case 'saintdelafield':
+          case 'herrvon':
+          case 'rougescript':
+            // Handle font family selection
+            typographyIcons.forEach(i => {
+              if (['metropolis', 'worksans', 'oswald', 'roboto', 'crimsonpro', 'saintdelafield', 'herrvon', 'rougescript'].includes(i.dataset.typography)) {
+                i.classList.remove('active');
+              }
+            });
+            icon.classList.add('active');
+            applySetting('fontFamily', type);
+            
+            // Also update the control panel
+            fontButtons.forEach(btn => {
+              btn.classList.toggle('active', btn.dataset.font === type);
+            });
+            
+            // For handwriting fonts, disable case toggling and force lowercase
+            const isHandwritingFont = handwritingFonts.includes(type);
+            if (isHandwritingFont) {
+              // If case toggle is active, turn it off
+              if (textCaseToggle.classList.contains('active')) {
+                textCaseToggle.classList.remove('active');
+                applySetting('textCase', 'normal');
+              }
+              // Add disabled styling to case toggle, but don't completely disable
+              // since we now allow camelCase for handwriting fonts
+              textCaseToggle.classList.add('modified-for-handwriting');
+              
+              // Update status message
+              const statusMessage = document.getElementById('statusMessage');
+              if (statusMessage) {
+                statusMessage.textContent = 'Title Case enabled for handwriting fonts';
+                setTimeout(() => {
+                  statusMessage.textContent = 'Ready';
+                }, 2000);
+              }
+            } else {
+              // Re-enable the case toggle
+              textCaseToggle.classList.remove('disabled');
+              textCaseToggle.classList.remove('modified-for-handwriting');
+            }
+            break;
+            
+          case 'case':
+            // Toggle text case with special handling for handwriting fonts
+            if (handwritingFonts.includes(settings.fontFamily)) {
+              // For handwriting fonts, toggle between normal and camelCase
+              icon.classList.toggle('active');
+              const isCamelCase = icon.classList.contains('active');
+              applySetting('textCase', isCamelCase ? 'camelcase' : 'normal');
+              
+              // Update the toggle in control panel
+              textCaseToggle.classList.toggle('active', isCamelCase);
+              
+              // Show message about camelCase for handwriting fonts
+              const statusMessage = document.getElementById('statusMessage');
+              if (statusMessage) {
+                statusMessage.textContent = isCamelCase ? 'Title Case enabled for handwriting' : 'Normal case for handwriting';
+                setTimeout(() => {
+                  statusMessage.textContent = 'Ready';
+                }, 2000);
+              }
+            } else {
+              // Regular handling for non-handwriting fonts
+              icon.classList.toggle('active');
+              const isUppercase = icon.classList.contains('active');
+              applySetting('textCase', isUppercase ? 'uppercase' : 'normal');
+              
+              // Update the toggle in control panel
+              textCaseToggle.classList.toggle('active', isUppercase);
+            }
+            break;
+            
+          case 'position':
+            // Cycle through positions: center -> top -> bottom -> vertical -> center
+            const positions = ['center', 'top', 'bottom', 'vertical'];
+            let currentIndex = positions.indexOf(settings.textPosition);
+            const nextIndex = (currentIndex + 1) % positions.length;
+            const nextPosition = positions[nextIndex];
+            
+            applySetting('textPosition', nextPosition);
+            
+            // Update position buttons in control panel
+            positionButtons.forEach(btn => {
+              btn.classList.toggle('active', btn.dataset.position === nextPosition);
+            });
+            break;
+        }
+      });
+    });
+    
+    // Displacement X slider
+    setupControlListener(displacementXSlider, 'input', () => {
+      const value = parseInt(displacementXSlider.value);
+      applySetting('displacementX', value);
+      displacementXValue.textContent = value;
+    });
+    
+    // Displacement Y slider
+    setupControlListener(displacementYSlider, 'input', () => {
+      const value = parseInt(displacementYSlider.value);
+      applySetting('displacementY', value);
+      displacementYValue.textContent = value;
     });
   });

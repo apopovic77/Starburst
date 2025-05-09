@@ -41,6 +41,7 @@ class StarburstRenderer {
         numLines: 60,
         innerRadiusRatio: 0,
         rotation: 0,
+        canvasRotation: 0,
         startShape: 'star',
         endShape: 'circle',
         morphProgress: 0,
@@ -49,22 +50,30 @@ class StarburstRenderer {
         selectedShapes: ['star', 'circle'],
         currentShapeIndex: 0,
         nextShapeIndex: 1,
+        // New displacement options
+        displacementX: 0,
+        displacementY: 0,
         // New options
         generationStrategy: 'starburst',
-        centerStyle: 'dot',
+        centerStyle: 'none',
         centerSize: 2,
-        centerGlowSize: 5,
-        centerGlowOpacity: 0.5,
-        // Default values for different generation strategies
-        concentricLayers: 5,
-        concentricSpacing: 0.5,
-        gridSize: 5,
-        gridStyle: 'square',
-        symmetryFactor: 4,
-        symmetryType: 'radial',
-        fractalDepth: 3,
-        fractalScale: 0.5,
+        centerGlowSize: 0,
+        centerGlowOpacity: 0,
+        cornerRadius: 0,
+        cornerRadiusMethod: 'arc',
+        // Temporarily removed: grid, symmetrical, fractal strategies
         scale: 1,
+        showText: true,
+        titleText: "STARBURST",
+        subtitleText: "geometric designer",
+        textSize: 40,
+        textColor: "#ffffff",
+        fontFamily: "metropolis",
+        fontWeight: "regular",
+        charSpacing: 0,
+        lineSpacing: 1.5,
+        textPosition: "center",
+        textCase: "normal",
         ...options
       };
     }
@@ -144,7 +153,17 @@ class StarburstRenderer {
      */
     _calculateMorphedDistance(angle) {
       try {
-        const { startShape, endShape, morphProgress, animationMode, selectedShapes, currentShapeIndex, nextShapeIndex } = this.options;
+        const { 
+          startShape, 
+          endShape, 
+          morphProgress, 
+          animationMode, 
+          selectedShapes, 
+          currentShapeIndex, 
+          nextShapeIndex,
+          cornerRadius,
+          cornerRadiusMethod
+        } = this.options;
         
         // Determine which shapes to morph between based on animation mode
         let fromShape, toShape;
@@ -157,9 +176,9 @@ class StarburstRenderer {
           toShape = endShape;
         }
         
-        // Get base distances for the two shapes
-        let startDist = this.calculator.getShapeDistance(fromShape, angle);
-        let endDist = this.calculator.getShapeDistance(toShape, angle);
+        // Get base distances for the two shapes with cornerRadius option
+        let startDist = this.calculator.getShapeDistance(fromShape, angle, { cornerRadius, cornerRadiusMethod });
+        let endDist = this.calculator.getShapeDistance(toShape, angle, { cornerRadius, cornerRadiusMethod });
         
         // Normalize distances before interpolation for consistent scaling
         const normalizedStartDist = this.calculator.normalizeShapeDistance(fromShape, startDist);
@@ -329,8 +348,12 @@ class StarburstRenderer {
         const dpr = window.devicePixelRatio || 1;
         const displayWidth = width / dpr;
         const displayHeight = height / dpr;
-        const centerX = displayWidth / 2;
-        const centerY = displayHeight / 2;
+        
+        // Apply displacement
+        const { displacementX, displacementY } = this.options;
+        const centerX = (displayWidth / 2) + displacementX;
+        const centerY = (displayHeight / 2) + displacementY;
+        
         const maxRadius = Math.min(displayWidth, displayHeight) * 0.45 * this.options.scale;
         
         // Extract options
@@ -342,17 +365,31 @@ class StarburstRenderer {
           numLines,
           innerRadiusRatio,
           rotation,
+          canvasRotation,
           generationStrategy
         } = this.options;
         
         // Apply rotation in radians
         const rotationRadians = (rotation * Math.PI) / 180;
+        // Convert canvas rotation from degrees to radians
+        const canvasRotationRadians = (canvasRotation * Math.PI) / 180;
         
         // Clear canvas
         this.ctx.fillStyle = backgroundColor;
         this.ctx.fillRect(0, 0, displayWidth, displayHeight);
         
+        // Save the original canvas state for text rendering later
+        this.ctx.save();
+        
+        // Apply canvas rotation if needed
+        if (canvasRotation !== 0) {
+          this.ctx.translate(displayWidth/2, displayHeight/2); // Translate to canvas center
+          this.ctx.rotate(canvasRotationRadians);
+          this.ctx.translate(-displayWidth/2, -displayHeight/2); // Translate back
+        }
+        
         // Use the appropriate generation strategy
+        // For now, only support starburst and concentric patterns
         switch (generationStrategy) {
           case 'starburst':
             this._renderStarburst(centerX, centerY, maxRadius, innerRadiusRatio, numLines, lineThickness, rotationRadians);
@@ -360,15 +397,7 @@ class StarburstRenderer {
           case 'concentric':
             this._renderConcentric(centerX, centerY, maxRadius);
             break;
-          case 'grid':
-            this._renderGrid(centerX, centerY, maxRadius);
-            break;
-          case 'symmetrical':
-            this._renderSymmetrical(centerX, centerY, maxRadius);
-            break;
-          case 'fractal':
-            this._renderFractal(centerX, centerY, maxRadius);
-            break;
+          // Temporarily disable other generation strategies
           default:
             // Default to starburst if unknown strategy
             this._renderStarburst(centerX, centerY, maxRadius, innerRadiusRatio, numLines, lineThickness, rotationRadians);
@@ -376,6 +405,12 @@ class StarburstRenderer {
         
         // Draw center based on selected style
         this._renderCenterStyle(centerX, centerY, maxRadius);
+        
+        // Restore to unrotated canvas state
+        this.ctx.restore();
+        
+        // Render text elements (title and subtitle) without rotation
+        this._renderText(displayWidth/2, displayHeight/2, maxRadius);
       } catch (error) {
         Logger.error('Render error', error);
         this._showStatusMessage('Error rendering design', 'error');
@@ -436,15 +471,30 @@ class StarburstRenderer {
      * @param {number} maxRadius - Maximum radius
      */
     _renderConcentric(centerX, centerY, maxRadius) {
-      const { concentricLayers, concentricSpacing, startShape, endShape, morphProgress, lineThickness } = this.options;
+      const { 
+        concentricSpacing, 
+        startShape, 
+        endShape, 
+        morphProgress, 
+        lineThickness,
+        numLines
+      } = this.options;
       
-      // Calculate the spacing between layers
-      const spacing = maxRadius / concentricLayers;
+      // LINE DENSITY DIRECTLY CONTROLS NUMBER OF RINGS
+      // Use numLines as the number of concentric rings (with a reasonable minimum/maximum)
+      const ringCount = Math.max(3, Math.min(Math.floor(numLines/2), 50));
       
-      // Draw each concentric layer
-      for (let i = 1; i <= concentricLayers; i++) {
+      // Calculate the spacing between rings based on ring count
+      const spacing = maxRadius / ringCount;
+      
+      // Fixed number of segments per ring for smooth appearance
+      const segmentsPerRing = 72; // 5-degree steps
+      const angleStep = (2 * Math.PI) / segmentsPerRing;
+      
+      // Draw each concentric ring
+      for (let i = 1; i <= ringCount; i++) {
         const radius = i * spacing;
-        const layerRatio = i / concentricLayers;
+        const layerRatio = i / ringCount;
         
         // Interpolate between start and end shapes based on layer position
         const layerProgress = morphProgress * (1 - layerRatio) + layerRatio;
@@ -452,7 +502,7 @@ class StarburstRenderer {
         // Draw shape for this layer
         this.ctx.beginPath();
         
-        const angleStep = Math.PI / 36; // Draw in small segments for smooth curves
+        // Use the fixed angleStep for smooth rings
         for (let angle = 0; angle < 2 * Math.PI; angle += angleStep) {
           // Calculate morphed distance for this angle
           const dist = this._calculateMorphedDistance(angle);
@@ -495,503 +545,6 @@ class StarburstRenderer {
     }
     
     /**
-     * Render grid pattern
-     * @param {number} centerX - X coordinate of center
-     * @param {number} centerY - Y coordinate of center
-     * @param {number} maxRadius - Maximum radius
-     */
-    _renderGrid(centerX, centerY, maxRadius) {
-      const { gridSize, gridStyle, lineThickness } = this.options;
-      
-      // Set line style
-      this.ctx.lineWidth = lineThickness;
-      this.ctx.strokeStyle = this.options.outerColor;
-      
-      const cellSize = (maxRadius * 2) / gridSize;
-      
-      // Calculate grid bounds
-      const startX = centerX - maxRadius;
-      const startY = centerY - maxRadius;
-      
-      if (gridStyle === 'square') {
-        // Draw vertical lines
-        for (let i = 0; i <= gridSize; i++) {
-          const x = startX + i * cellSize;
-          this.ctx.beginPath();
-          this.ctx.moveTo(x, startY);
-          this.ctx.lineTo(x, startY + gridSize * cellSize);
-          this.ctx.stroke();
-        }
-        
-        // Draw horizontal lines
-        for (let i = 0; i <= gridSize; i++) {
-          const y = startY + i * cellSize;
-          this.ctx.beginPath();
-          this.ctx.moveTo(startX, y);
-          this.ctx.lineTo(startX + gridSize * cellSize, y);
-          this.ctx.stroke();
-        }
-        
-        // Draw shape in each cell
-        for (let i = 0; i < gridSize; i++) {
-          for (let j = 0; j < gridSize; j++) {
-            const cellX = startX + i * cellSize + cellSize / 2;
-            const cellY = startY + j * cellSize + cellSize / 2;
-            const cellRadius = cellSize * 0.4;
-            
-            // Use distance from center to determine which shape to draw
-            const distFromCenter = Math.sqrt(
-              Math.pow(cellX - centerX, 2) + Math.pow(cellY - centerY, 2)
-            ) / maxRadius;
-            
-            // Progressively morph based on distance from center
-            this._drawCellShape(cellX, cellY, cellRadius, distFromCenter);
-          }
-        }
-      } else if (gridStyle === 'hexagonal') {
-        // Hexagonal grid
-        const hexHeight = cellSize;
-        const hexWidth = hexHeight * Math.sqrt(3) / 2;
-        
-        for (let row = -gridSize; row <= gridSize; row++) {
-          for (let col = -gridSize; col <= gridSize; col++) {
-            const x = centerX + col * hexWidth * 1.5;
-            const y = centerY + (row * hexHeight + (col % 2) * (hexHeight / 2));
-            
-            if (Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)) <= maxRadius) {
-              this._drawHexagon(x, y, hexHeight/2);
-              
-              // Draw shape in hexagon
-              const distFromCenter = Math.sqrt(
-                Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
-              ) / maxRadius;
-              
-              this._drawCellShape(x, y, hexHeight * 0.3, distFromCenter);
-            }
-          }
-        }
-      } else if (gridStyle === 'triangular') {
-        // Triangular grid
-        const triHeight = cellSize;
-        const triWidth = triHeight * Math.sqrt(3) / 2;
-        
-        for (let row = -gridSize; row <= gridSize; row++) {
-          for (let col = -gridSize * 2; col <= gridSize * 2; col++) {
-            const x = centerX + col * triWidth / 2;
-            const y = centerY + row * triHeight * 0.75;
-            
-            if (Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)) <= maxRadius) {
-              const pointUp = (col + row) % 2 === 0;
-              this._drawTriangle(x, y, triHeight/2, pointUp);
-              
-              // Draw shape in triangle
-              const distFromCenter = Math.sqrt(
-                Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)
-              ) / maxRadius;
-              
-              this._drawCellShape(x, y, triHeight * 0.2, distFromCenter);
-            }
-          }
-        }
-      }
-    }
-    
-    /**
-     * Draw a hexagon for the grid pattern
-     */
-    _drawHexagon(x, y, size) {
-      this.ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3;
-        const hx = x + size * Math.cos(angle);
-        const hy = y + size * Math.sin(angle);
-        
-        if (i === 0) {
-          this.ctx.moveTo(hx, hy);
-        } else {
-          this.ctx.lineTo(hx, hy);
-        }
-      }
-      this.ctx.closePath();
-      this.ctx.stroke();
-    }
-    
-    /**
-     * Draw a triangle for the grid pattern
-     */
-    _drawTriangle(x, y, size, pointUp) {
-      this.ctx.beginPath();
-      if (pointUp) {
-        this.ctx.moveTo(x, y - size);
-        this.ctx.lineTo(x - size * Math.sqrt(3)/2, y + size/2);
-        this.ctx.lineTo(x + size * Math.sqrt(3)/2, y + size/2);
-      } else {
-        this.ctx.moveTo(x, y + size);
-        this.ctx.lineTo(x - size * Math.sqrt(3)/2, y - size/2);
-        this.ctx.lineTo(x + size * Math.sqrt(3)/2, y - size/2);
-      }
-      this.ctx.closePath();
-      this.ctx.stroke();
-    }
-    
-    /**
-     * Draw a shape within a grid cell
-     */
-    _drawCellShape(x, y, radius, progress) {
-      // Use the morphing calculations to draw the shape
-      const { startShape, endShape, morphProgress } = this.options;
-      
-      // Combine the cell's position-based progress with the overall morph progress
-      const combinedProgress = (morphProgress + progress) % 1;
-      
-      // Draw shape
-      this.ctx.beginPath();
-      const angleStep = Math.PI / 18; // Draw in small segments for smooth curves
-      
-      for (let angle = 0; angle < 2 * Math.PI; angle += angleStep) {
-        // Get base distances for the two shapes
-        let startDist = this.calculator.getShapeDistance(startShape, angle);
-        let endDist = this.calculator.getShapeDistance(endShape, angle);
-        
-        // Normalize distances
-        const normalizedStartDist = this.calculator.normalizeShapeDistance(startShape, startDist);
-        const normalizedEndDist = this.calculator.normalizeShapeDistance(endShape, endDist);
-        
-        // Linear interpolation
-        const dist = normalizedStartDist * (1 - combinedProgress) + normalizedEndDist * combinedProgress;
-        
-        // Calculate point on the shape
-        const pointX = x + Math.cos(angle) * radius * dist;
-        const pointY = y + Math.sin(angle) * radius * dist;
-        
-        if (angle === 0) {
-          this.ctx.moveTo(pointX, pointY);
-        } else {
-          this.ctx.lineTo(pointX, pointY);
-        }
-      }
-      
-      // Close the path
-      this.ctx.closePath();
-      
-      // Create gradient
-      const gradient = this.ctx.createRadialGradient(
-        x, y, 0,
-        x, y, radius
-      );
-      
-      // Color based on position and morph progress
-      const cellColor = this._interpolateColor(
-        this.options.centerColor,
-        this.options.outerColor,
-        progress
-      );
-      
-      gradient.addColorStop(0, cellColor);
-      gradient.addColorStop(1, this.options.outerColor);
-      
-      this.ctx.fillStyle = gradient;
-      this.ctx.fill();
-    }
-    
-    /**
-     * Render symmetrical pattern
-     * @param {number} centerX - X coordinate of center
-     * @param {number} centerY - Y coordinate of center
-     * @param {number} maxRadius - Maximum radius
-     */
-    _renderSymmetrical(centerX, centerY, maxRadius) {
-      const { symmetryFactor, symmetryType, lineThickness } = this.options;
-      
-      if (symmetryType === 'radial') {
-        // Radial symmetry - similar to starburst but with filled shapes
-        const angleStep = (2 * Math.PI) / symmetryFactor;
-        
-        for (let i = 0; i < symmetryFactor; i++) {
-          const angle = i * angleStep;
-          
-          // Draw each symmetrical segment
-          this.ctx.save();
-          this.ctx.translate(centerX, centerY);
-          this.ctx.rotate(angle);
-          
-          // Draw the shape for this segment
-          this._drawSymmetricalSegment(0, 0, maxRadius);
-          
-          this.ctx.restore();
-        }
-      } else if (symmetryType === 'reflective') {
-        // Reflective symmetry across multiple axes
-        for (let i = 0; i < symmetryFactor; i++) {
-          const angle = (i * Math.PI) / symmetryFactor;
-          
-          // Draw reflective pairs across each axis
-          this.ctx.save();
-          this.ctx.translate(centerX, centerY);
-          
-          // First side of reflection
-          this.ctx.rotate(angle);
-          this._drawSymmetricalSegment(0, 0, maxRadius);
-          
-          // Second (reflected) side
-          this.ctx.scale(-1, 1);
-          this._drawSymmetricalSegment(0, 0, maxRadius);
-          
-          this.ctx.restore();
-        }
-      } else if (symmetryType === 'translational') {
-        // Translational symmetry - repeated pattern in a grid
-        const patternSize = maxRadius / (symmetryFactor / 2);
-        
-        for (let x = -symmetryFactor; x <= symmetryFactor; x++) {
-          for (let y = -symmetryFactor; y <= symmetryFactor; y++) {
-            const posX = centerX + x * patternSize;
-            const posY = centerY + y * patternSize;
-            
-            // Only draw if within the overall radius
-            if (Math.sqrt(Math.pow(posX - centerX, 2) + Math.pow(posY - centerY, 2)) <= maxRadius) {
-              this._drawTranslationalUnit(posX, posY, patternSize * 0.4);
-            }
-          }
-        }
-      }
-    }
-    
-    /**
-     * Draw a symmetrical segment for radial or reflective symmetry
-     */
-    _drawSymmetricalSegment(x, y, maxRadius) {
-      const { startShape, endShape, morphProgress, lineThickness } = this.options;
-      
-      // Create a path that represents a segment
-      this.ctx.beginPath();
-      
-      // Start at center
-      this.ctx.moveTo(0, 0);
-      
-      // Draw arc from 0 to the segment angle
-      const segmentAngle = Math.PI / (this.options.symmetryFactor);
-      const steps = 20;
-      const angleStep = segmentAngle / steps;
-      
-      for (let i = 0; i <= steps; i++) {
-        const angle = i * angleStep;
-        
-        // Calculate morphed distance for this angle
-        let startDist = this.calculator.getShapeDistance(startShape, angle);
-        let endDist = this.calculator.getShapeDistance(endShape, angle);
-        
-        // Normalize distances
-        const normalizedStartDist = this.calculator.normalizeShapeDistance(startShape, startDist);
-        const normalizedEndDist = this.calculator.normalizeShapeDistance(endShape, endDist);
-        
-        // Linear interpolation
-        const dist = normalizedStartDist * (1 - morphProgress) + normalizedEndDist * morphProgress;
-        
-        // Calculate point on the shape
-        const px = Math.cos(angle) * maxRadius * dist;
-        const py = Math.sin(angle) * maxRadius * dist;
-        
-        this.ctx.lineTo(px, py);
-      }
-      
-      // Close path back to center
-      this.ctx.lineTo(0, 0);
-      
-      // Fill with gradient
-      const gradient = this.ctx.createRadialGradient(
-        0, 0, 0,
-        0, 0, maxRadius
-      );
-      
-      gradient.addColorStop(0, this.options.centerColor);
-      gradient.addColorStop(1, this.options.outerColor);
-      
-      this.ctx.fillStyle = gradient;
-      this.ctx.fill();
-      
-      // Stroke the outline
-      this.ctx.lineWidth = lineThickness;
-      this.ctx.strokeStyle = this._darkenColor(this.options.outerColor, 0.2);
-      this.ctx.stroke();
-    }
-    
-    /**
-     * Draw a unit for translational symmetry
-     */
-    _drawTranslationalUnit(x, y, size) {
-      const { morphProgress, startShape, endShape, lineThickness } = this.options;
-      
-      // Draw shape
-      this.ctx.beginPath();
-      const angleStep = Math.PI / 18;
-      
-      for (let angle = 0; angle < 2 * Math.PI; angle += angleStep) {
-        // Get base distances for the two shapes
-        let startDist = this.calculator.getShapeDistance(startShape, angle);
-        let endDist = this.calculator.getShapeDistance(endShape, angle);
-        
-        // Normalize distances
-        const normalizedStartDist = this.calculator.normalizeShapeDistance(startShape, startDist);
-        const normalizedEndDist = this.calculator.normalizeShapeDistance(endShape, endDist);
-        
-        // Linear interpolation
-        const dist = normalizedStartDist * (1 - morphProgress) + normalizedEndDist * morphProgress;
-        
-        // Calculate point on the shape
-        const pointX = x + Math.cos(angle) * size * dist;
-        const pointY = y + Math.sin(angle) * size * dist;
-        
-        if (angle === 0) {
-          this.ctx.moveTo(pointX, pointY);
-        } else {
-          this.ctx.lineTo(pointX, pointY);
-        }
-      }
-      
-      this.ctx.closePath();
-      
-      // Create gradient
-      const gradient = this.ctx.createRadialGradient(
-        x, y, 0,
-        x, y, size
-      );
-      
-      gradient.addColorStop(0, this.options.centerColor);
-      gradient.addColorStop(1, this.options.outerColor);
-      
-      this.ctx.fillStyle = gradient;
-      this.ctx.fill();
-      
-      // Stroke the outline
-      this.ctx.lineWidth = lineThickness;
-      this.ctx.strokeStyle = this._darkenColor(this.options.outerColor, 0.2);
-      this.ctx.stroke();
-    }
-    
-    /**
-     * Render fractal pattern
-     * @param {number} centerX - X coordinate of center
-     * @param {number} centerY - Y coordinate of center
-     * @param {number} maxRadius - Maximum radius
-     */
-    _renderFractal(centerX, centerY, maxRadius) {
-      const { fractalDepth, fractalScale, startShape, endShape, morphProgress, lineThickness } = this.options;
-      
-      // Draw the base shape
-      this._drawFractalShape(centerX, centerY, maxRadius, 0, fractalDepth);
-    }
-    
-    /**
-     * Recursively draw fractal shapes
-     * @param {number} x - X coordinate
-     * @param {number} y - Y coordinate
-     * @param {number} size - Size of the shape
-     * @param {number} depth - Current recursion depth
-     * @param {number} maxDepth - Maximum recursion depth
-     */
-    _drawFractalShape(x, y, size, depth, maxDepth) {
-      const { fractalScale, startShape, endShape, morphProgress, lineThickness } = this.options;
-      
-      if (depth >= maxDepth) {
-        return;
-      }
-      
-      // Calculate progress based on depth
-      const depthProgress = depth / maxDepth;
-      const combinedProgress = (morphProgress + depthProgress) % 1;
-      
-      // Draw the shape at this level
-      this.ctx.beginPath();
-      const angleStep = Math.PI / 18;
-      
-      // Calculate points around the shape
-      const points = [];
-      
-      for (let angle = 0; angle < 2 * Math.PI; angle += angleStep) {
-        // Get base distances for the two shapes
-        let startDist = this.calculator.getShapeDistance(startShape, angle);
-        let endDist = this.calculator.getShapeDistance(endShape, angle);
-        
-        // Normalize distances
-        const normalizedStartDist = this.calculator.normalizeShapeDistance(startShape, startDist);
-        const normalizedEndDist = this.calculator.normalizeShapeDistance(endShape, endDist);
-        
-        // Linear interpolation
-        const dist = normalizedStartDist * (1 - combinedProgress) + normalizedEndDist * combinedProgress;
-        
-        // Calculate point on the shape
-        const pointX = x + Math.cos(angle) * size * dist;
-        const pointY = y + Math.sin(angle) * size * dist;
-        
-        if (angle === 0) {
-          this.ctx.moveTo(pointX, pointY);
-        } else {
-          this.ctx.lineTo(pointX, pointY);
-        }
-        
-        // Store point for recursive shapes
-        if (angle % (2 * angleStep) === 0) {
-          points.push({ x: pointX, y: pointY });
-        }
-      }
-      
-      this.ctx.closePath();
-      
-      // Create gradient
-      const gradient = this.ctx.createRadialGradient(
-        x, y, 0,
-        x, y, size
-      );
-      
-      // Color based on depth and morph progress
-      const levelColor = this._interpolateColor(
-        this.options.centerColor,
-        this.options.outerColor,
-        depthProgress
-      );
-      
-      gradient.addColorStop(0, depthProgress === 0 ? this.options.centerColor : levelColor);
-      gradient.addColorStop(1, this.options.outerColor);
-      
-      this.ctx.fillStyle = gradient;
-      this.ctx.fill();
-      
-      this.ctx.lineWidth = lineThickness * (1 - depthProgress * 0.5);
-      this.ctx.strokeStyle = this._darkenColor(this.options.outerColor, 0.2);
-      this.ctx.stroke();
-      
-      // Recursively draw smaller shapes at each point
-      if (depth < maxDepth - 1) {
-        // Extract key points for child shapes (e.g., vertices)
-        const childPoints = [];
-        
-        // For more controlled fractal, choose specific points
-        if (startShape === 'star' || endShape === 'star') {
-          // For star-like shapes, place children at the points
-          for (let i = 0; i < points.length; i += 2) {
-            childPoints.push(points[i]);
-          }
-        } else if (startShape === 'square' || endShape === 'square') {
-          // For square-like shapes, place at corners
-          for (let i = 0; i < points.length; i += points.length / 4) {
-            childPoints.push(points[Math.floor(i)]);
-          }
-        } else {
-          // Default: distribute evenly
-          for (let i = 0; i < points.length; i += Math.max(1, Math.floor(points.length / 5))) {
-            childPoints.push(points[i]);
-          }
-        }
-        
-        // Draw children at each point
-        for (const point of childPoints) {
-          this._drawFractalShape(point.x, point.y, size * fractalScale, depth + 1, maxDepth);
-        }
-      }
-    }
-    
-    /**
      * Render center style based on settings
      * @param {number} centerX - X coordinate of center
      * @param {number} centerY - Y coordinate of center
@@ -1011,8 +564,8 @@ class StarburstRenderer {
           centerX, centerY, adjustedGlowSize
         );
         
-        gradient.addColorStop(0, this._addAlpha(centerColor, centerGlowOpacity));
-        gradient.addColorStop(1, this._addAlpha(centerColor, 0));
+        gradient.addColorStop(0, this._adjustColorOpacity(centerColor, centerGlowOpacity));
+        gradient.addColorStop(1, this._adjustColorOpacity(centerColor, 0));
         
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, adjustedGlowSize, 0, 2 * Math.PI);
@@ -1173,11 +726,16 @@ class StarburstRenderer {
           // Calculate morphed distance
           const dist = this._calculateMorphedDistance(angle);
           
+          // Apply displacement
+          const { displacementX, displacementY } = this.options;
+          const adjustedCenterX = centerX + displacementX;
+          const adjustedCenterY = centerY + displacementY;
+          
           // Calculate line points
-          const startX = centerX + Math.cos(angle) * innerRadius;
-          const startY = centerY + Math.sin(angle) * innerRadius;
-          const endX = centerX + Math.cos(angle) * maxRadius * dist;
-          const endY = centerY + Math.sin(angle) * maxRadius * dist;
+          const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
+          const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
+          const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
+          const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
           
           // Add gradient definition
           const gradientId = `gradient-${i}`;
@@ -1199,11 +757,16 @@ class StarburstRenderer {
           // Calculate morphed distance
           const dist = this._calculateMorphedDistance(angle);
           
+          // Apply displacement
+          const { displacementX, displacementY } = this.options;
+          const adjustedCenterX = centerX + displacementX;
+          const adjustedCenterY = centerY + displacementY;
+          
           // Calculate line points
-          const startX = centerX + Math.cos(angle) * innerRadius;
-          const startY = centerY + Math.sin(angle) * innerRadius;
-          const endX = centerX + Math.cos(angle) * maxRadius * dist;
-          const endY = centerY + Math.sin(angle) * maxRadius * dist;
+          const startX = adjustedCenterX + Math.cos(angle) * innerRadius;
+          const startY = adjustedCenterY + Math.sin(angle) * innerRadius;
+          const endX = adjustedCenterX + Math.cos(angle) * maxRadius * dist;
+          const endY = adjustedCenterY + Math.sin(angle) * maxRadius * dist;
           
           // Add line
           svgContent += `
@@ -1212,12 +775,165 @@ class StarburstRenderer {
         
         // Add center glow
         const glowRadius = Math.max(5, maxRadius * 0.05);
+        // Make sure we have adjustedCenterX and adjustedCenterY defined for these elements
+        const { displacementX, displacementY } = this.options;
+        const adjustedCenterX = centerX + displacementX;
+        const adjustedCenterY = centerY + displacementY;
+        
         svgContent += `
-    <circle cx="${centerX}" cy="${centerY}" r="${glowRadius}" fill="url(#centerGlow)"/>`;
+    <circle cx="${adjustedCenterX}" cy="${adjustedCenterY}" r="${glowRadius}" fill="url(#centerGlow)"/>`;
         
         // Add center point
         svgContent += `
-    <circle cx="${centerX}" cy="${centerY}" r="${this.options.lineThickness}" fill="${this.options.centerColor}"/>
+    <circle cx="${adjustedCenterX}" cy="${adjustedCenterY}" r="${this.options.lineThickness}" fill="${this.options.centerColor}"/>`;
+        
+        // Add text elements if enabled
+        if (this.options.showText && (this.options.titleText || this.options.subtitleText)) {
+          // Get text options
+          const { 
+            titleText, 
+            subtitleText,
+            textSize,
+            textColor,
+            fontFamily,
+            fontWeight,
+            charSpacing,
+            lineSpacing,
+            textPosition,
+            textCase
+          } = this.options;
+          
+          // Set font family based on selection
+          let fontFamilyValue;
+          const isHandwritingFont = ['saintdelafield', 'herrvon', 'rougescript'].includes(fontFamily);
+          
+          switch (fontFamily) {
+            case "metropolis":
+              fontFamilyValue = "Metropolis, sans-serif";
+              break;
+            case "worksans":
+              fontFamilyValue = "Work Sans, sans-serif";
+              break;
+            case "oswald":
+              fontFamilyValue = "Oswald, sans-serif";
+              break;
+            case "roboto":
+              fontFamilyValue = "Roboto, sans-serif";
+              break;
+            case "crimsonpro":
+              fontFamilyValue = "Crimson Pro, serif";
+              break;
+            case "saintdelafield":
+              fontFamilyValue = "Mrs Saint Delafield, cursive";
+              break;
+            case "herrvon":
+              fontFamilyValue = "Herr Von Muellerhoff, cursive";
+              break;
+            case "rougescript":
+              fontFamilyValue = "Rouge Script, cursive";
+              break;
+            default:
+              fontFamilyValue = "Metropolis, sans-serif";
+          }
+          
+          // Set font style
+          let fontStyle = "";
+          if (fontWeight === "bold") {
+            fontStyle = "font-weight='bold'";
+          } else if (fontWeight === "italic") {
+            fontStyle = "font-style='italic'";
+          }
+          
+          // Calculate title and subtitle size
+          const titleFontSize = textSize;
+          const subtitleFontSize = textSize / 3;
+          
+          // Apply text case transformation (for handwriting fonts, always use lowercase regardless of setting)
+          let displayTitle = titleText;
+          let displaySubtitle = subtitleText;
+          
+          if (isHandwritingFont) {
+            // For handwriting fonts, always use lowercase
+            displayTitle = titleText.toLowerCase();
+            displaySubtitle = subtitleText.toLowerCase();
+          } else if (textCase === "uppercase") {
+            displayTitle = titleText.toUpperCase();
+            displaySubtitle = subtitleText.toUpperCase();
+          } else if (textCase === "lowercase") {
+            displayTitle = titleText.toLowerCase();
+            displaySubtitle = subtitleText.toLowerCase();
+          } else if (textCase === "camelcase") {
+            // Capitalize first letter of each word (Title Case / Camel Case)
+            displayTitle = titleText.split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+            displaySubtitle = subtitleText.split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+          } else if (isHandwritingFont && textCase === "normal") {
+            // For handwriting fonts with normal case, use lowercase
+            displayTitle = titleText.toLowerCase();
+            displaySubtitle = subtitleText.toLowerCase();
+          }
+          
+          // Calculate positions based on the selected position option
+          let titleX, titleY, subtitleX, subtitleY;
+          const padding = maxRadius * 0.2; // Padding from edges
+          
+          if (textPosition === "vertical") {
+            // For vertical text
+            svgContent += `
+    <g transform="translate(${centerX}, ${centerY}) rotate(-90)">`;
+            
+            if (displayTitle) {
+              svgContent += `
+      <text x="0" y="-10" font-family="${fontFamilyValue}" font-size="${titleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle" letter-spacing="${charSpacing}em">${displayTitle}</text>`;
+            }
+            
+            if (displaySubtitle) {
+              svgContent += `
+      <text x="0" y="${titleFontSize * lineSpacing}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle">${displaySubtitle}</text>`;
+            }
+            
+            svgContent += `
+    </g>`;
+          } else {
+            // For horizontal text positioning
+            switch (textPosition) {
+              case "top":
+                titleY = padding;
+                subtitleY = titleY + titleFontSize * lineSpacing;
+                break;
+              case "bottom":
+                subtitleY = displayHeight - padding;
+                titleY = subtitleY - titleFontSize * lineSpacing;
+                break;
+              case "center":
+              default:
+                titleY = centerY - (titleFontSize * lineSpacing) / 2;
+                subtitleY = centerY + (titleFontSize * lineSpacing) / 2;
+            }
+            
+            // Set horizontal position (center)
+            titleX = centerX;
+            subtitleX = centerX;
+            
+            // Add title
+            if (displayTitle) {
+              svgContent += `
+    <text x="${titleX}" y="${titleY}" font-family="${fontFamilyValue}" font-size="${titleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle" letter-spacing="${charSpacing}em">${displayTitle}</text>`;
+            }
+            
+            // Add subtitle
+            if (displaySubtitle) {
+              svgContent += `
+    <text x="${subtitleX}" y="${subtitleY}" font-family="${fontFamilyValue}" font-size="${subtitleFontSize}" ${fontStyle} fill="${textColor}" text-anchor="middle">${displaySubtitle}</text>`;
+            }
+          }
+        }
+        
+        // Close SVG tag
+        svgContent += `
   </svg>`;
         
         Logger.info('SVG export completed');
@@ -1290,5 +1006,173 @@ class StarburstRenderer {
           statusElement.className = 'status-message';
         }, 3000);
       }
+    }
+    
+    /**
+     * Render text elements (title and subtitle)
+     * @param {number} centerX - X coordinate of center
+     * @param {number} centerY - Y coordinate of center
+     * @param {number} maxRadius - Maximum radius of the design
+     */
+    _renderText(centerX, centerY, maxRadius) {
+      const { 
+        showText = true,
+        titleText = "STARBURST", 
+        subtitleText = "geometric designer",
+        textSize = 40,
+        textColor = "#ffffff",
+        fontFamily = "serif", 
+        fontWeight = "regular",
+        charSpacing = 0,
+        lineSpacing = 1.5,
+        textPosition = "center",
+        textCase = "normal"
+      } = this.options;
+      
+      // If text is disabled, return early
+      if (!showText || (!titleText && !subtitleText)) return;
+      
+      // Save current canvas state
+      this.ctx.save();
+      
+      // Set text properties
+      this.ctx.textAlign = "center";
+      this.ctx.fillStyle = textColor;
+      
+      // Set font family based on selection
+      let fontFamilyValue;
+      const isHandwritingFont = ['saintdelafield', 'herrvon', 'rougescript'].includes(fontFamily);
+      
+      switch (fontFamily) {
+        case "metropolis":
+          fontFamilyValue = "'Metropolis', sans-serif";
+          break;
+        case "worksans":
+          fontFamilyValue = "'Work Sans', sans-serif";
+          break;
+        case "oswald":
+          fontFamilyValue = "'Oswald', sans-serif";
+          break;
+        case "roboto":
+          fontFamilyValue = "'Roboto', sans-serif";
+          break;
+        case "crimsonpro":
+          fontFamilyValue = "'Crimson Pro', serif";
+          break;
+        case "saintdelafield":
+          fontFamilyValue = "'Mrs Saint Delafield', cursive";
+          break;
+        case "herrvon":
+          fontFamilyValue = "'Herr Von Muellerhoff', cursive";
+          break;
+        case "rougescript":
+          fontFamilyValue = "'Rouge Script', cursive";
+          break;
+        default:
+          fontFamilyValue = "'Metropolis', sans-serif";
+      }
+      
+      // Set font weight/style
+      let fontStyle = "";
+      if (fontWeight === "bold") {
+        fontStyle = "bold ";
+      } else if (fontWeight === "italic") {
+        fontStyle = "italic ";
+      }
+      
+      // Calculate title and subtitle size (subtitle is 1/3 of title size)
+      const titleFontSize = textSize;
+      const subtitleFontSize = textSize / 3;
+      
+      // Apply text case transformation (for handwriting fonts, always use lowercase regardless of setting)
+      let displayTitle = titleText;
+      let displaySubtitle = subtitleText;
+      
+      if (isHandwritingFont) {
+        // For handwriting fonts, always use lowercase
+        displayTitle = titleText.toLowerCase();
+        displaySubtitle = subtitleText.toLowerCase();
+      } else if (textCase === "uppercase") {
+        displayTitle = titleText.toUpperCase();
+        displaySubtitle = subtitleText.toUpperCase();
+      } else if (textCase === "lowercase") {
+        displayTitle = titleText.toLowerCase();
+        displaySubtitle = subtitleText.toLowerCase();
+      } else if (textCase === "camelcase") {
+        // Capitalize first letter of each word (Title Case / Camel Case)
+        displayTitle = titleText.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+        displaySubtitle = subtitleText.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      } else if (isHandwritingFont && textCase === "normal") {
+        // For handwriting fonts with normal case, use lowercase
+        displayTitle = titleText.toLowerCase();
+        displaySubtitle = subtitleText.toLowerCase();
+      }
+      
+      // Calculate positions based on the selected position option
+      let titleX, titleY, subtitleX, subtitleY;
+      const padding = maxRadius * 0.2; // Padding from edges
+      
+      if (textPosition === "vertical") {
+        // Handle vertical text
+        this.ctx.save();
+        this.ctx.translate(centerX, centerY);
+        this.ctx.rotate(-Math.PI/2);
+        
+        this.ctx.font = `${fontStyle}${titleFontSize}px ${fontFamilyValue}`;
+        this.ctx.letterSpacing = `${charSpacing}em`;
+        
+        // Draw title
+        if (displayTitle) {
+          this.ctx.fillText(displayTitle, 0, -10);
+        }
+        
+        // Draw subtitle
+        if (displaySubtitle) {
+          this.ctx.font = `${fontStyle}${subtitleFontSize}px ${fontFamilyValue}`;
+          this.ctx.fillText(displaySubtitle, 0, titleFontSize * lineSpacing);
+        }
+        
+        this.ctx.restore();
+      } else {
+        // For horizontal text positioning
+        switch (textPosition) {
+          case "top":
+            titleY = padding;
+            subtitleY = titleY + titleFontSize * lineSpacing;
+            break;
+          case "bottom":
+            subtitleY = this.canvas.height / window.devicePixelRatio - padding;
+            titleY = subtitleY - titleFontSize * lineSpacing;
+            break;
+          case "center":
+          default:
+            titleY = centerY - (titleFontSize * lineSpacing) / 2;
+            subtitleY = centerY + (titleFontSize * lineSpacing) / 2;
+        }
+        
+        // Set horizontal position (center)
+        titleX = centerX;
+        subtitleX = centerX;
+        
+        // Draw title
+        if (displayTitle) {
+          this.ctx.font = `${fontStyle}${titleFontSize}px ${fontFamilyValue}`;
+          this.ctx.letterSpacing = `${charSpacing}em`;
+          this.ctx.fillText(displayTitle, titleX, titleY);
+        }
+        
+        // Draw subtitle
+        if (displaySubtitle) {
+          this.ctx.font = `${fontStyle}${subtitleFontSize}px ${fontFamilyValue}`;
+          this.ctx.fillText(displaySubtitle, subtitleX, subtitleY);
+        }
+      }
+      
+      // Restore canvas state
+      this.ctx.restore();
     }
   }

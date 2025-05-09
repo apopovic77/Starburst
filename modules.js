@@ -131,6 +131,223 @@ const Logger = (function() {
     const TRIANGLE_HEIGHT_FACTOR = Math.sqrt(3) / 2; // Equilateral triangle height factor
     
     /**
+     * Apply corner radius to shape distance
+     * @param {number} distance - Original distance from center to edge
+     * @param {number} angle - Angle in radians
+     * @param {number} cornerRadius - Corner radius (0-1)
+     * @param {number} corners - Number of corners in the shape
+     * @param {string} method - Method to use for corner radius ('arc', 'blend', or 'alternative')
+     * @returns {number} - Modified distance with corner radius applied
+     */
+    function applyCornerRadius(distance, angle, cornerRadius, corners = 4, method = 'arc') {
+      if (cornerRadius <= 0) return distance; // No corner radius
+      
+      // Enhance corner radius effect for shapes with fewer corners
+      // This makes the rounding effect more pronounced on triangles and squares
+      let enhancedCornerRadius = cornerRadius;
+      if (corners <= 4) {
+        enhancedCornerRadius = Math.min(1, cornerRadius * 1.5);
+      }
+      
+      // Use different methods based on parameter
+      switch (method) {
+        case 'arc':
+          return applyArcCornerRadius(distance, angle, enhancedCornerRadius, corners);
+        case 'blend':
+          return applyBlendCornerRadius(distance, angle, cornerRadius, corners);
+        case 'alternative':
+          return applyAlternativeCornerRadius(distance, angle, cornerRadius, corners);
+        default:
+          return applyArcCornerRadius(distance, angle, enhancedCornerRadius, corners);
+      }
+    }
+    
+    /**
+     * Apply corner radius using arc method (current approach)
+     * Creates proper geometric arcs at corners
+     */
+    function applyArcCornerRadius(distance, angle, cornerRadius, corners) {
+      if (cornerRadius <= 0) return distance;
+      
+      // Calculate the angle to each corner - important: offset angles based on shape type
+      const segmentAngle = (2 * Math.PI) / corners;
+      
+      // Different shapes have different angle offsets for corners
+      let angleOffset = 0;
+      // For square, the corners are at 45°, 135°, 225°, 315° (π/4, 3π/4, 5π/4, 7π/4)
+      if (corners === 4) {
+        angleOffset = Math.PI / 4; // 45 degrees
+      } else if (corners === 3) {
+        angleOffset = Math.PI / 6; // 30 degrees for triangle
+      } else if (corners === 5) {
+        angleOffset = Math.PI / 5; // For pentagon
+      } else if (corners === 6) {
+        angleOffset = 0; // For hexagon (corners at 0, 60, 120, etc.)
+      }
+      
+      // Find the nearest corner angular position with correct offset
+      const cornerAngles = [];
+      for (let i = 0; i < corners; i++) {
+        cornerAngles.push((i * segmentAngle) + angleOffset);
+      }
+      
+      // Find the closest corner
+      let closestCornerAngle = cornerAngles[0];
+      let minAngularDistance = Math.abs(((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - cornerAngles[0]);
+      if (minAngularDistance > Math.PI) {
+        minAngularDistance = 2 * Math.PI - minAngularDistance;
+      }
+      
+      for (let i = 1; i < cornerAngles.length; i++) {
+        const cornerAngle = cornerAngles[i];
+        const normalizedAngle = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        
+        // Calculate angular distance, handling wrap-around
+        let angDist = Math.abs(normalizedAngle - cornerAngle);
+        if (angDist > Math.PI) {
+          angDist = 2 * Math.PI - angDist;
+        }
+        
+        if (angDist < minAngularDistance) {
+          minAngularDistance = angDist;
+          closestCornerAngle = cornerAngle;
+        }
+      }
+      
+      // The maximum effect distance (angular) is proportional to corner radius
+      const maxAngularEffect = (segmentAngle / 2) * cornerRadius;
+      
+      // If we're not within the effect zone of a corner, return the original distance
+      if (minAngularDistance > maxAngularEffect) {
+        return distance;
+      }
+      
+      // The actual corner point distance from center
+      const cornerPointDistance = calculateDistanceAtCorner(closestCornerAngle, corners);
+      
+      // Calculate how much to reduce the distance at the exact corner point
+      // This is what creates the rounding effect
+      const reductionAmount = cornerPointDistance * cornerRadius * 0.35;
+      
+      // Calculate the reduction based on angular distance from corner
+      // Use a quadratic falloff for smoother transition (1 at corner, 0 at edge of effect)
+      const falloff = 1 - Math.pow(minAngularDistance / maxAngularEffect, 2);
+      
+      // Apply reduction scaled by falloff
+      return distance - (reductionAmount * falloff);
+    }
+    
+    /**
+     * Calculate the precise distance from center to corner for a regular polygon
+     */
+    function calculateDistanceAtCorner(angle, corners) {
+      // For regular polygons, all corners are at the same distance
+      // Vertices lie on a circle with radius 1/cos(π/n) relative to the inscribed circle
+      return 1 / Math.cos(Math.PI / corners);
+    }
+    
+    /**
+     * Apply corner radius using blend method
+     * Blends between original shape and circle
+     */
+    function applyBlendCornerRadius(distance, angle, cornerRadius, corners) {
+      if (cornerRadius >= 1) return 1; // Full corner radius (becomes circle)
+      
+      // Higher corners value = shape approaches circle faster
+      // For shapes like square, pentagon, etc., smooth corners near the corners
+      const segmentAngle = (2 * Math.PI) / corners;
+      
+      // Normalize angle to the current segment
+      const angleInSegment = angle % segmentAngle;
+      
+      // Find position within segment (0 = corner, 0.5 = middle of edge)
+      const positionInSegment = Math.min(
+        angleInSegment / segmentAngle,
+        (segmentAngle - angleInSegment) / segmentAngle
+      ) * 2;
+      
+      // Calculate blend factor based on corner radius and position
+      // Higher corner radius = more blending with circle
+      // Closer to corner = more effect
+      const blendFactor = Math.max(0, Math.min(1, (1 - positionInSegment) / cornerRadius));
+      
+      // Blend between original shape and circle (distance = 1)
+      return distance * (1 - blendFactor) + 1 * blendFactor;
+    }
+    
+    /**
+     * Apply corner radius using alternative method
+     * Uses inward displacement based on corner proximity
+     */
+    function applyAlternativeCornerRadius(distance, angle, cornerRadius, corners) {
+      if (cornerRadius <= 0) return distance;
+      
+      // Calculate segment angle
+      const segmentAngle = (2 * Math.PI) / corners;
+      
+      // Different shapes have different angle offsets for corners
+      let angleOffset = 0;
+      // For square, the corners are at 45°, 135°, 225°, 315° (π/4, 3π/4, 5π/4, 7π/4)
+      if (corners === 4) {
+        angleOffset = Math.PI / 4; // 45 degrees
+      } else if (corners === 3) {
+        angleOffset = Math.PI / 6; // 30 degrees for triangle
+      } else if (corners === 5) {
+        angleOffset = Math.PI / 5; // For pentagon
+      } else if (corners === 6) {
+        angleOffset = 0; // For hexagon (corners at 0, 60, 120, etc.)
+      }
+      
+      // Get the exact angles of all corners with the correct offset
+      const cornerAngles = [];
+      for (let i = 0; i < corners; i++) {
+        cornerAngles.push((i * segmentAngle) + angleOffset);
+      }
+      
+      // Normalize input angle
+      const normalizedAngle = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      
+      // Find the closest corner by checking distance to each corner
+      let closestCornerDist = Infinity;
+      let closestCornerAngle = 0;
+      
+      for (let i = 0; i < cornerAngles.length; i++) {
+        const cornerAngle = cornerAngles[i];
+        
+        // Calculate angular distance, handling wrap-around
+        let angDist = Math.abs(normalizedAngle - cornerAngle);
+        if (angDist > Math.PI) {
+          angDist = 2 * Math.PI - angDist;
+        }
+        
+        if (angDist < closestCornerDist) {
+          closestCornerDist = angDist;
+          closestCornerAngle = cornerAngle;
+        }
+      }
+      
+      // Calculate how far the corner effect extends
+      const cornerEffectRadius = segmentAngle * 0.3 * cornerRadius;
+      
+      // If outside the corner effect, return original distance
+      if (closestCornerDist >= cornerEffectRadius) {
+        return distance;
+      }
+      
+      // For corners: apply direct reduction based on corner proximity
+      const cornerProximity = 1 - (closestCornerDist / cornerEffectRadius);
+      
+      // Use cubic ease-out curve for smoother transition from corner
+      const smoothedFactor = cornerProximity * cornerProximity * (3 - 2 * cornerProximity);
+      
+      // The maximum reduction at corners - strong enough to be visible
+      const maxReduction = distance * 0.5 * cornerRadius;
+      
+      // Calculate final reduced distance
+      return distance - (maxReduction * smoothedFactor);
+    }
+    
+    /**
      * Calculate distance from center to edge for a circle
      * @returns {number} Constant radius of 1
      */
@@ -146,7 +363,7 @@ const Logger = (function() {
      */
     function calculateStar(angle, options = {}) {
       try {
-        const { points = 5, innerRadius = 0.4 } = options;
+        const { points = 5, innerRadius = 0.4, cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
         
         if (points <= 0) {
           throw new ShapeError('Star points must be greater than 0');
@@ -156,7 +373,26 @@ const Logger = (function() {
           throw new ShapeError('Star inner radius must be between 0 and 1');
         }
         
-        return innerRadius + Math.abs(Math.cos(points * angle / 2)) * (1 - innerRadius);
+        // Normalize angle to the current segment
+        const segmentAngle = (2 * Math.PI) / points;
+        const angleInSegment = angle % segmentAngle;
+        
+        // Calculate distance using a power function for sharp transitions
+        // cos(points * angle/2) oscillates between -1 and 1, with zeros at the star points
+        const oscillation = Math.cos(points * angle / 2);
+        
+        // Take absolute value and invert the oscillation so star points are at maxima
+        const pointPosition = 1 - Math.abs(oscillation);
+        
+        // Apply a power function to create sharper transitions (higher power = sharper)
+        const power = 4;
+        const sharpPointPosition = Math.pow(pointPosition, power);
+        
+        // Interpolate between inner and outer radius
+        const distance = innerRadius + sharpPointPosition * (1 - innerRadius);
+        
+        // Apply corner radius effect at the points
+        return applyCornerRadius(distance, angle, cornerRadius, points, cornerRadiusMethod);
       } catch (error) {
         Logger.error('Error calculating star shape', error);
         return 1; // Fallback to circle
@@ -166,10 +402,12 @@ const Logger = (function() {
     /**
      * Calculate distance from center to edge for a triangle shape
      * @param {number} angle - Angle in radians
+     * @param {object} options - Configuration options
      * @returns {number} Radius at the given angle
      */
-    function calculateTriangle(angle) {
+    function calculateTriangle(angle, options = {}) {
       try {
+        const { cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
         const sectorAngle = 2 * Math.PI / 3;
         // Shift angle to align with a corner at 0
         const shiftedAngle = angle + Math.PI / 6;
@@ -181,7 +419,11 @@ const Logger = (function() {
         if (Math.abs(cosValue) < 0.001) {
           return 100; // Safe fallback value
         }
-        return 1 / (cosValue * TRIANGLE_HEIGHT_FACTOR);
+        
+        const distance = 1 / (cosValue * TRIANGLE_HEIGHT_FACTOR);
+        
+        // Apply corner radius (3 corners for triangle)
+        return applyCornerRadius(distance, shiftedAngle, cornerRadius, 3, cornerRadiusMethod);
       } catch (error) {
         Logger.error('Error calculating triangle shape', error);
         return 1; // Fallback to circle
@@ -191,10 +433,12 @@ const Logger = (function() {
     /**
      * Calculate distance from center to edge for a square shape
      * @param {number} angle - Angle in radians
+     * @param {object} options - Configuration options 
      * @returns {number} Radius at the given angle
      */
-    function calculateSquare(angle) {
+    function calculateSquare(angle, options = {}) {
       try {
+        const { cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
         const cosVal = Math.abs(Math.cos(angle));
         const sinVal = Math.abs(Math.sin(angle));
         const divisor = Math.max(cosVal, sinVal);
@@ -205,7 +449,10 @@ const Logger = (function() {
           return 100; // Fallback
         }
         
-        return 1 / divisor;
+        const distance = 1 / divisor;
+        
+        // Apply corner radius (4 corners for square)
+        return applyCornerRadius(distance, angle, cornerRadius, 4, cornerRadiusMethod);
       } catch (error) {
         Logger.error('Error calculating square shape', error);
         return 1; // Fallback to circle
@@ -215,10 +462,12 @@ const Logger = (function() {
     /**
      * Calculate distance from center to edge for a pentagon shape
      * @param {number} angle - Angle in radians
+     * @param {object} options - Configuration options
      * @returns {number} Radius at the given angle
      */
-    function calculatePentagon(angle) {
+    function calculatePentagon(angle, options = {}) {
       try {
+        const { cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
         const sides = 5;
         const sectorAngle = 2 * Math.PI / sides;
         // Align with a corner
@@ -232,7 +481,11 @@ const Logger = (function() {
         if (Math.abs(cosVal * apothem) < 0.001) {
           return 100; // Fallback
         }
-        return 1 / (cosVal * apothem);
+        
+        const distance = 1 / (cosVal * apothem);
+        
+        // Apply corner radius (5 corners for pentagon)
+        return applyCornerRadius(distance, shiftedAngle, cornerRadius, 5, cornerRadiusMethod);
       } catch (error) {
         Logger.error('Error calculating pentagon shape', error);
         return 1; // Fallback to circle
@@ -242,10 +495,12 @@ const Logger = (function() {
     /**
      * Calculate distance from center to edge for a hexagon shape
      * @param {number} angle - Angle in radians
+     * @param {object} options - Configuration options
      * @returns {number} Radius at the given angle
      */
-    function calculateHexagon(angle) {
+    function calculateHexagon(angle, options = {}) {
       try {
+        const { cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
         const sides = 6;
         const sectorAngle = 2 * Math.PI / sides;
         // Get angle within current sector
@@ -257,7 +512,11 @@ const Logger = (function() {
         if (Math.abs(cosVal * apothem) < 0.001) {
           return 100; // Fallback
         }
-        return 1 / (cosVal * apothem);
+        
+        const distance = 1 / (cosVal * apothem);
+        
+        // Apply corner radius (6 corners for hexagon)
+        return applyCornerRadius(distance, angle, cornerRadius, 6, cornerRadiusMethod);
       } catch (error) {
         Logger.error('Error calculating hexagon shape', error);
         return 1; // Fallback to circle
@@ -294,13 +553,15 @@ const Logger = (function() {
         // Shape-specific calculations
         try {
           let result;
+          const { cornerRadius = 0, cornerRadiusMethod = 'arc' } = options;
+          
           switch(shape.toLowerCase()) {
             case 'circle': result = calculateCircle(); break;
-            case 'star': result = calculateStar(normalizedAngle, options); break;
-            case 'triangle': result = calculateTriangle(normalizedAngle); break;
-            case 'square': result = calculateSquare(normalizedAngle); break;
-            case 'pentagon': result = calculatePentagon(normalizedAngle); break;
-            case 'hexagon': result = calculateHexagon(normalizedAngle); break;
+            case 'star': result = calculateStar(normalizedAngle, { ...options, cornerRadiusMethod }); break;
+            case 'triangle': result = calculateTriangle(normalizedAngle, { ...options, cornerRadiusMethod }); break;
+            case 'square': result = calculateSquare(normalizedAngle, { ...options, cornerRadiusMethod }); break;
+            case 'pentagon': result = calculatePentagon(normalizedAngle, { ...options, cornerRadiusMethod }); break;
+            case 'hexagon': result = calculateHexagon(normalizedAngle, { ...options, cornerRadiusMethod }); break;
             default:
               Logger.warn(`Unknown shape: ${shape}, using circle`);
               result = calculateCircle();
@@ -409,10 +670,14 @@ const Logger = (function() {
     
     // List of serializable settings
     const SERIALIZABLE_SETTINGS = [
-      'numLines', 'lineThickness', 'innerRadiusRatio', 'rotation', 'scale',
+      'numLines', 'lineThickness', 'innerRadiusRatio', 'rotation', 'canvasRotation', 'scale',
       'morphProgress', 'startShape', 'endShape',
       'centerColor', 'outerColor', 'backgroundColor',
-      'animationSpeed', 'animationMode', 'selectedShapes',
+      'animationSpeed', 'animationMode', 'selectedShapes', 'toggleAnimDuration',
+      'cornerRadius', 'cornerRadiusMethod', 'displacementX', 'displacementY',
+      // Typography settings
+      'showText', 'titleText', 'subtitleText', 'textSize', 'textColor', 
+      'fontFamily', 'fontWeight', 'charSpacing', 'lineSpacing', 'textPosition', 'textCase',
       // New settings
       'generationStrategy', 'centerStyle', 'centerSize', 'centerGlowSize', 'centerGlowOpacity',
       'concentricLayers', 'concentricSpacing', 'gridSize', 'gridStyle',
@@ -441,12 +706,26 @@ const Logger = (function() {
         validSettings.rotation = Math.max(0, Math.min(360, parseInt(validSettings.rotation) || 0));
       }
       
+      if ('canvasRotation' in validSettings) {
+        validSettings.canvasRotation = Math.max(0, Math.min(360, parseInt(validSettings.canvasRotation) || 0));
+      }
+      
       if ('scale' in validSettings) {
         validSettings.scale = Math.max(0.1, Math.min(2, parseFloat(validSettings.scale) || 1));
       }
       
       if ('morphProgress' in validSettings) {
         validSettings.morphProgress = Math.max(0, Math.min(1, parseFloat(validSettings.morphProgress) || 0.5));
+      }
+      
+      // Validate animation speed
+      if ('animationSpeed' in validSettings) {
+        validSettings.animationSpeed = Math.max(0.5, Math.min(5, parseFloat(validSettings.animationSpeed) || 2));
+      }
+      
+      // Validate toggle animation duration
+      if ('toggleAnimDuration' in validSettings) {
+        validSettings.toggleAnimDuration = Math.max(1, Math.min(10, parseFloat(validSettings.toggleAnimDuration) || 3));
       }
       
       // Validate new settings
@@ -618,6 +897,7 @@ const Logger = (function() {
         if (validSettings.lineThickness) params.append('lineThickness', validSettings.lineThickness);
         if (validSettings.innerRadiusRatio) params.append('innerRadiusRatio', validSettings.innerRadiusRatio);
         if (validSettings.rotation) params.append('rotation', validSettings.rotation);
+        if (validSettings.canvasRotation) params.append('canvasRotation', validSettings.canvasRotation);
         if (validSettings.scale) params.append('scale', validSettings.scale);
         if (validSettings.morphProgress) params.append('morphProgress', validSettings.morphProgress);
         if (validSettings.startShape) params.append('startShape', validSettings.startShape);
@@ -685,12 +965,87 @@ const Logger = (function() {
       }
     }
     
+    /**
+     * Save settings to cookies for persistence across sessions
+     * @param {object} settings - Settings to save
+     * @returns {boolean} - Success status
+     */
+    function saveSettingsToCookies(settings) {
+      try {
+        // Only save essential settings to cookies to avoid size limitations
+        const cookieSettings = {
+          fontFamily: settings.fontFamily,
+          textSize: settings.textSize,
+          textPosition: settings.textPosition,
+          displacementX: settings.displacementX,
+          displacementY: settings.displacementY,
+          cornerRadius: settings.cornerRadius,
+          cornerRadiusMethod: settings.cornerRadiusMethod,
+          startShape: settings.startShape,
+          endShape: settings.endShape,
+          generationStrategy: settings.generationStrategy,
+          scale: settings.scale
+        };
+        
+        // Convert to JSON string
+        const settingsJson = JSON.stringify(cookieSettings);
+        
+        // Set cookie that expires in 30 days
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + 30);
+        
+        document.cookie = `starburstSettings=${encodeURIComponent(settingsJson)}; expires=${expirationDate.toUTCString()}; path=/; SameSite=Strict`;
+        
+        Logger.debug('Settings saved to cookie');
+        return true;
+      } catch (error) {
+        Logger.error('Failed to save settings to cookie', error);
+        return false;
+      }
+    }
+    
+    /**
+     * Load settings from cookies
+     * @returns {object|null} - Loaded settings or null if not found
+     */
+    function loadSettingsFromCookies() {
+      try {
+        // Get all cookies
+        const cookies = document.cookie.split(';');
+        
+        // Find the settings cookie
+        for (let i = 0; i < cookies.length; i++) {
+          const cookie = cookies[i].trim();
+          
+          // Check if this is the settings cookie
+          if (cookie.startsWith('starburstSettings=')) {
+            // Extract the value
+            const cookieValue = cookie.substring('starburstSettings='.length, cookie.length);
+            
+            // Parse the JSON
+            const settings = JSON.parse(decodeURIComponent(cookieValue));
+            
+            Logger.debug('Settings loaded from cookie', settings);
+            return settings;
+          }
+        }
+        
+        // No settings found
+        return null;
+      } catch (error) {
+        Logger.error('Failed to load settings from cookie', error);
+        return null;
+      }
+    }
+    
     // Public API
     return {
       saveSettings,
       loadSettings,
       createShareableURL,
-      parseURLParams
+      parseURLParams,
+      saveSettingsToCookies,
+      loadSettingsFromCookies
     };
   })();
   
@@ -698,6 +1053,7 @@ const Logger = (function() {
   const TestManager = {
     tests: {},
     results: {},
+    settings: null, // Reference to the settings object
     
     /**
      * Register a test for a specific module or feature
@@ -711,6 +1067,15 @@ const Logger = (function() {
       }
       this.tests[category][name] = testFn;
       Logger.debug(`Registered test: ${category}.${name}`);
+    },
+    
+    /**
+     * Set the settings object reference for tests to use
+     * @param {object} settingsObj - The settings object
+     */
+    setSettings(settingsObj) {
+      this.settings = settingsObj;
+      Logger.debug('Settings reference set for TestManager');
     },
     
     /**
@@ -748,16 +1113,38 @@ const Logger = (function() {
       // Store original value
       const originalValue = parseFloat(control.value);
       
-      // Test with a different value
-      const testValue = originalValue === parseFloat(control.max) ? 
-        parseFloat(control.min) : 
-        originalValue + (parseFloat(control.max) - parseFloat(control.min)) / 4;
+      // Get the step value
+      const step = parseFloat(control.step) || 1;
       
-      control.value = testValue;
+      // Test with a different value that's aligned to the step
+      const range = parseFloat(control.max) - parseFloat(control.min);
+      let testValue = originalValue === parseFloat(control.max) ? 
+        parseFloat(control.min) : 
+        originalValue + range / 4;
+      
+      // Round the test value to the nearest step
+      testValue = Math.round(testValue / step) * step;
+      
+      // Format the value according to step precision
+      const decimalPlaces = step.toString().includes('.') ? 
+        step.toString().split('.')[1].length : 0;
+      
+      // Format the test value to match the step precision
+      const formattedTestValue = parseFloat(testValue.toFixed(decimalPlaces));
+      
+      // Set the value and dispatch event
+      control.value = formattedTestValue;
       control.dispatchEvent(new Event('input'));
       
-      // Check if setting was updated
-      const settingUpdated = settings[id] == testValue; // Using == for type coercion
+      // Get the actual value from settings
+      const settingValue = parseFloat(this.settings[id]);
+      
+      // Round the actual value to the nearest step value for comparison
+      const roundedSettingValue = Math.round(settingValue / step) * step;
+      const roundedTestValue = Math.round(formattedTestValue / step) * step;
+      
+      // Compare the rounded values
+      const settingUpdated = Math.abs(roundedSettingValue - roundedTestValue) < 0.0001;
       
       // Restore original value
       control.value = originalValue;
@@ -766,8 +1153,8 @@ const Logger = (function() {
       return { 
         success: settingUpdated, 
         message: settingUpdated ? 
-          `${id} setting successfully updated to ${testValue}` : 
-          `${id} setting failed to update to ${testValue}`
+          `${id} setting successfully updated to ${formattedTestValue}` : 
+          `${id} setting failed to update to ${formattedTestValue} (actual: ${settingValue})`
       };
     },
     
@@ -791,7 +1178,7 @@ const Logger = (function() {
       control.dispatchEvent(new Event('input'));
       
       // Check if setting was updated
-      const settingUpdated = settings[id] === testValue;
+      const settingUpdated = this.settings[id] === testValue;
       
       // Restore original value
       control.value = originalValue;
@@ -836,7 +1223,7 @@ const Logger = (function() {
       control.dispatchEvent(new Event('change'));
       
       // Check if setting was updated
-      const settingUpdated = settings[id] === testValue;
+      const settingUpdated = this.settings[id] === testValue;
       
       // Restore original value
       control.value = originalValue;
@@ -896,13 +1283,14 @@ const Logger = (function() {
       shapes.forEach(shape => {
         this.registerTest('ShapeCalculator', shape, () => {
           try {
-            const points = ShapeCalculator[shape](100, 100, 50, 0);
-            const success = Array.isArray(points) && points.length > 0;
+            // Use the proper API: getShapeDistance with a test angle
+            const distance = ShapeCalculator.getShapeDistance(shape, Math.PI/4);
+            const success = typeof distance === 'number' && isFinite(distance);
             return { 
               success, 
               message: success ? 
-                `${shape} calculation returned ${points.length} points` : 
-                `${shape} calculation failed to return points` 
+                `${shape} calculation returned valid distance: ${distance}` : 
+                `${shape} calculation failed to return valid distance` 
             };
           } catch (error) {
             return { success: false, message: `${shape} calculation error: ${error.message}` };
@@ -933,18 +1321,37 @@ const Logger = (function() {
       
       this.registerTest('ConfigManager', 'saveLoadSettings', () => {
         try {
-          const testSettings = {test: 'value'};
-          ConfigManager.saveSettings(testSettings);
+          // Save a unique test value to settings
+          const testTime = new Date().getTime();
+          const testSettings = {
+            numLines: 200,
+            centerColor: '#ff0000',
+            testIdentifier: `test-${testTime}`
+          };
+          
+          // Save the test settings
+          const saveResult = ConfigManager.saveSettings(testSettings);
+          if (!saveResult) {
+            return { success: false, message: 'Failed to save settings' };
+          }
+          
+          // Load the settings back
           const loaded = ConfigManager.loadSettings();
-          const success = loaded && loaded.test === 'value';
+          
+          // Since ConfigManager only saves SERIALIZABLE_SETTINGS, testIdentifier won't be there
+          // We'll check only for the standard properties that should be saved
+          const success = loaded && 
+                         loaded.numLines === testSettings.numLines && 
+                         loaded.centerColor === testSettings.centerColor;
+          
           return { 
             success, 
             message: success ? 
-              'Settings save and load succeeded' : 
-              'Settings save and load failed' 
+              'Settings successfully saved and loaded' : 
+              `Settings save and load failed - loaded: ${JSON.stringify(loaded)}`
           };
         } catch (error) {
-          return { success: false, message: `Settings save/load error: ${error.message}` };
+          return { success: false, message: `Settings test error: ${error.message}` };
         }
       });
     },

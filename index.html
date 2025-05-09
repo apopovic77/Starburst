@@ -4,7 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Interactive Starburst Designer</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;700&family=Roboto:ital,wght@0,400;0,700;1,400&family=Work+Sans:ital,wght@0,400;0,700;1,400&family=Mrs+Saint+Delafield&family=Herr+Von+Muellerhoff&family=Rouge+Script&display=swap" rel="stylesheet">
+  <!-- Metropolis font is not available on Google Fonts, so we'll use a CSS import -->
   <style>
+    @import url('https://cdn.jsdelivr.net/gh/mattrothenberg/metropolis@master/metropolis.css');
+    
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
       background-color: #222;
@@ -560,6 +567,54 @@
       z-index: 90;
     }
     
+    /* Generation Strategy selector styles */
+    .strategy-selector {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(51, 51, 51, 0.9);
+      border-radius: 50px;
+      padding: 10px 15px;
+      display: flex;
+      gap: 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 90;
+    }
+    
+    .strategy-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #444;
+      transition: all 0.2s ease;
+    }
+    
+    .strategy-icon:hover {
+      background-color: #555;
+      transform: scale(1.1);
+    }
+    
+    .strategy-icon.active {
+      background-color: #46a;
+      box-shadow: 0 0 0 2px #fff;
+    }
+    
+    .strategy-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: #eee;
+    }
+    
+    .strategy-icon.active svg {
+      stroke: #fff;
+    }
+    
     .shape-icon {
       width: 40px;
       height: 40px;
@@ -591,12 +646,435 @@
     .shape-icon.active svg {
       fill: #fff;
     }
+    
+    /* Toggle Switch Styles */
+    .toggle-container {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 20px;
+      background-color: #333;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .toggle-switch.active {
+      background-color: #4CAF50;
+    }
+    
+    .toggle-switch::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: transform 0.3s;
+    }
+    
+    .toggle-switch.active::before {
+      transform: translateX(20px);
+    }
+    
+    .slider-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    
+    .slider-anim-container {
+      flex: 1;
+    }
+    
+    /* Tooltip for toggle switches */
+    .toggle-container .tooltip {
+      visibility: hidden;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    
+    .toggle-container:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+    
+    .param-note {
+      font-size: 12px;
+      color: #aaa;
+      font-style: italic;
+      margin-top: 5px;
+      padding: 5px;
+      border-left: 2px solid #555;
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Typography Styles */
+    .text-input {
+      width: 100%;
+      padding: 8px 10px;
+      background-color: #444;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+    
+    .text-input:focus {
+      border-color: #4a6;
+      outline: none;
+    }
+    
+    .font-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .font-button, .font-weight-button, .position-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #444;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #ddd;
+      padding: 8px 12px;
+      cursor: pointer;
+      flex: 1;
+      transition: all 0.2s;
+      min-width: 80px;
+    }
+    
+    .font-button {
+      height: 60px;
+    }
+    
+    .font-button.handwriting-font {
+      color: #fff;
+      background-color: #4a6;
+      border-color: #5b7;
+      opacity: 0.7;
+    }
+    
+    .font-button.handwriting-font.active {
+      opacity: 1;
+    }
+    
+    .font-button span {
+      display: block;
+    }
+    
+    .font-button .metropolis-preview {
+      font-family: 'Metropolis', sans-serif;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .worksans-preview {
+      font-family: 'Work Sans', sans-serif;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .oswald-preview {
+      font-family: 'Oswald', sans-serif;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .roboto-preview {
+      font-family: 'Roboto', sans-serif;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .crimsonpro-preview {
+      font-family: 'Crimson Pro', serif;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .saintdelafield-preview {
+      font-family: 'Mrs Saint Delafield', cursive;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .herrvon-preview {
+      font-family: 'Herr Von Muellerhoff', cursive;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .font-button .rougescript-preview {
+      font-family: 'Rouge Script', cursive;
+      font-size: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .button-label {
+      font-size: 12px;
+    }
+    
+    .font-button:hover, .font-weight-button:hover, .position-button:hover {
+      background-color: #555;
+    }
+    
+    .font-button.active, .font-weight-button.active, .position-button.active {
+      background-color: #4a6;
+      color: white;
+      border-color: #4a6;
+    }
+    
+    .toggle-switch-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    
+    .toggle-label {
+      font-size: 14px;
+    }
+    
+    .position-selector {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .position-button {
+      width: 40px;
+      height: 40px;
+      padding: 8px;
+    }
+    
+    .position-button svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+    
+    /* Typography toolbar */
+    .typography-toolbar {
+      position: fixed;
+      bottom: 140px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(51, 51, 51, 0.9);
+      border-radius: 50px;
+      padding: 10px 15px;
+      display: flex;
+      gap: 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 90;
+    }
+    
+    .typography-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #444;
+      transition: all 0.2s ease;
+    }
+    
+    .typography-icon:hover {
+      background-color: #555;
+      transform: scale(1.1);
+    }
+    
+    .typography-icon.active {
+      background-color: #46a;
+      box-shadow: 0 0 0 2px #fff;
+    }
+    
+    .typography-icon svg {
+      width: 24px;
+      height: 24px;
+      fill: #eee;
+    }
+    
+    /* Handwriting Fonts */
+    .typography-icon.handwriting-icon {
+      background-color: #4a6;
+    }
+    
+    .typography-icon.handwriting-icon svg {
+      fill: #fff;
+    }
+    
+    .toggle-switch.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background-color: #666;
+    }
+    
+    .toggle-switch.disabled::before {
+      background-color: #aaa;
+    }
+    
+    .control-section {
+      background-color: #353535;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 15px;
+    }
+    
+    .control-section h4 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #4a6;
+      font-size: 14px;
+      border-bottom: 1px solid #555;
+      padding-bottom: 6px;
+    }
   </style>
 </head>
 <body>
   <div class="app-container">
     <div class="canvas-container">
       <canvas id="starburstCanvas"></canvas>
+    </div>
+    
+    <!-- Generation Strategy Selector Toolbar -->
+    <div class="strategy-selector" id="strategySelector">
+      <div class="strategy-icon active" data-strategy="starburst" title="Starburst">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="2"/>
+          <line x1="12" y1="12" x2="22" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="19" y2="19" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="12" y2="22" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="5" y2="19" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="2" y2="12" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="5" y2="5" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="12" y2="2" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="12" y1="12" x2="19" y2="5" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="strategy-icon" data-strategy="concentric" title="Concentric">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke-width="1.5" fill="none"/>
+          <circle cx="12" cy="12" r="7" stroke-width="1.5" fill="none"/>
+          <circle cx="12" cy="12" r="4" stroke-width="1.5" fill="none"/>
+          <circle cx="12" cy="12" r="1" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="strategy-icon" data-strategy="grid" title="Grid">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="3" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="9" y="3" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="15" y="3" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="3" y="9" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="9" y="9" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="15" y="9" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="3" y="15" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="9" y="15" width="6" height="6" stroke-width="1.5" fill="none"/>
+          <rect x="15" y="15" width="6" height="6" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+      <div class="strategy-icon" data-strategy="symmetrical" title="Symmetrical">
+        <svg viewBox="0 0 24 24">
+          <path d="M12,2 L22,12 L12,22 L2,12 Z" stroke-width="1.5" fill="none"/>
+          <line x1="2" y1="12" x2="22" y2="12" stroke-width="1.5"/>
+          <line x1="12" y1="2" x2="12" y2="22" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="strategy-icon" data-strategy="fractal" title="Fractal">
+        <svg viewBox="0 0 24 24">
+          <rect x="8" y="8" width="8" height="8" stroke-width="1.5" fill="none"/>
+          <rect x="4" y="4" width="4" height="4" stroke-width="1.5" fill="none"/>
+          <rect x="16" y="4" width="4" height="4" stroke-width="1.5" fill="none"/>
+          <rect x="4" y="16" width="4" height="4" stroke-width="1.5" fill="none"/>
+          <rect x="16" y="16" width="4" height="4" stroke-width="1.5" fill="none"/>
+        </svg>
+      </div>
+    </div>
+    
+    <!-- Typography Toolbar -->
+    <div class="typography-toolbar" id="typographyToolbar">
+      <div class="typography-icon active" data-typography="metropolis" title="Metropolis Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Metropolis" font-size="18">M</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="worksans" title="Work Sans Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Work Sans" font-size="18">W</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="oswald" title="Oswald Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Oswald" font-size="18">O</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="roboto" title="Roboto Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Roboto" font-size="18">R</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="crimsonpro" title="Crimson Pro Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Crimson Pro" font-size="18">C</text>
+        </svg>
+      </div>
+      <!-- Handwriting Fonts -->
+      <div class="typography-icon handwriting-icon" data-typography="saintdelafield" title="Mrs Saint Delafield Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Mrs Saint Delafield" font-size="18">S</text>
+        </svg>
+      </div>
+      <div class="typography-icon handwriting-icon" data-typography="herrvon" title="Herr Von Muellerhoff Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Herr Von Muellerhoff" font-size="18">H</text>
+        </svg>
+      </div>
+      <div class="typography-icon handwriting-icon" data-typography="rougescript" title="Rouge Script Font">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="18" font-family="Rouge Script" font-size="18">R</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="case" title="Toggle Case">
+        <svg viewBox="0 0 24 24">
+          <text x="6" y="13" font-size="10">a</text>
+          <text x="12" y="19" font-size="14">A</text>
+        </svg>
+      </div>
+      <div class="typography-icon" data-typography="position" title="Change Position">
+        <svg viewBox="0 0 24 24">
+          <rect x="4" y="6" width="16" height="2" rx="1"/>
+          <rect x="7" y="11" width="10" height="2" rx="1"/>
+          <rect x="4" y="16" width="16" height="2" rx="1"/>
+        </svg>
+      </div>
     </div>
     
     <!-- Shape Selector Toolbar -->
@@ -637,6 +1115,7 @@
           <div class="tab" data-tab="colors-tab">Colors</div>
           <div class="tab" data-tab="generation-tab">Generation</div>
           <div class="tab" data-tab="animation-tab">Animation</div>
+          <div class="tab" data-tab="typography-tab">Typography</div>
         </div>
         
         <div class="tab-content active" id="basic-tab">
@@ -644,33 +1123,153 @@
             <h3>Basic Settings</h3>
             
             <div class="slider-container">
-              <label for="numLines">Number of Lines:</label>
-              <input type="range" id="numLines" min="10" max="200" value="60" step="1" aria-label="Number of Lines">
-              <span id="numLinesValue" class="slider-value">60</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="numLines">Line Density:</label>
+                  <input type="range" id="numLines" min="10" max="200" value="60" step="1" aria-label="Line Density">
+                  <span id="numLinesValue" class="slider-value">60</span>
+                </div>
+                <div class="toggle-container" data-slider-id="numLines">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div class="slider-container">
-              <label for="lineThickness">Line Thickness:</label>
-              <input type="range" id="lineThickness" min="0.5" max="5" value="1.5" step="0.1" aria-label="Line Thickness">
-              <span id="lineThicknessValue" class="slider-value">1.5</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="lineThickness">Line Thickness:</label>
+                  <input type="range" id="lineThickness" min="0.5" max="5" value="1.5" step="0.1" aria-label="Line Thickness">
+                  <span id="lineThicknessValue" class="slider-value">1.5</span>
+                </div>
+                <div class="toggle-container" data-slider-id="lineThickness">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div class="slider-container">
-              <label for="innerRadiusRatio">Inner Radius Ratio:</label>
-              <input type="range" id="innerRadiusRatio" min="0" max="0.9" value="0" step="0.01" aria-label="Inner Radius Ratio">
-              <span id="innerRadiusRatioValue" class="slider-value">0</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="innerRadiusRatio">Inner Radius Ratio:</label>
+                  <input type="range" id="innerRadiusRatio" min="0" max="0.9" value="0" step="0.01" aria-label="Inner Radius Ratio">
+                  <span id="innerRadiusRatioValue" class="slider-value">0</span>
+                </div>
+                <div class="toggle-container" data-slider-id="innerRadiusRatio">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div class="slider-container">
-              <label for="rotation">Rotation (degrees):</label>
-              <input type="range" id="rotation" min="0" max="360" value="0" step="1" aria-label="Rotation">
-              <span id="rotationValue" class="slider-value">0</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="rotation">Ray Rotation (degrees):</label>
+                  <input type="range" id="rotation" min="0" max="360" value="0" step="1" aria-label="Ray Rotation">
+                  <span id="rotationValue" class="slider-value">0</span>
+                </div>
+                <div class="toggle-container" data-slider-id="rotation">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div class="slider-container">
-              <label for="scale">Scale:</label>
-              <input type="range" id="scale" min="0.1" max="2" value="1" step="0.05" aria-label="Shape Scale">
-              <span id="scaleValue" class="slider-value">1</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="canvasRotation">Canvas Rotation (degrees):</label>
+                  <input type="range" id="canvasRotation" min="0" max="360" value="0" step="1" aria-label="Canvas Rotation">
+                  <span id="canvasRotationValue" class="slider-value">0</span>
+                </div>
+                <div class="toggle-container" data-slider-id="canvasRotation">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="slider-container">
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="scale">Scale:</label>
+                  <input type="range" id="scale" min="0.1" max="2" value="1" step="0.05" aria-label="Shape Scale">
+                  <span id="scaleValue" class="slider-value">1</span>
+                </div>
+                <div class="toggle-container" data-slider-id="scale">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="control-section">
+              <h4>Position Adjustment</h4>
+              <div class="slider-container">
+                <div class="slider-row">
+                  <div class="slider-anim-container">
+                    <label for="displacementX">Horizontal Position:</label>
+                    <input type="range" id="displacementX" min="-500" max="500" value="0" step="1" aria-label="Horizontal Displacement">
+                    <span id="displacementXValue" class="slider-value">0</span>
+                  </div>
+                  <div class="toggle-container" data-slider-id="displacementX">
+                    <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                      <span class="tooltip">Toggle animation</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="slider-container">
+                <div class="slider-row">
+                  <div class="slider-anim-container">
+                    <label for="displacementY">Vertical Position:</label>
+                    <input type="range" id="displacementY" min="-500" max="500" value="0" step="1" aria-label="Vertical Displacement">
+                    <span id="displacementYValue" class="slider-value">0</span>
+                  </div>
+                  <div class="toggle-container" data-slider-id="displacementY">
+                    <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                      <span class="tooltip">Toggle animation</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="slider-container">
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="cornerRadius">Corner Radius:</label>
+                  <input type="range" id="cornerRadius" min="0" max="1" value="0" step="0.01" aria-label="Corner Radius">
+                  <span id="cornerRadiusValue" class="slider-value">0</span>
+                </div>
+                <div class="toggle-container" data-slider-id="cornerRadius">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label for="cornerRadiusMethod">Corner Radius Method:</label>
+              <select id="cornerRadiusMethod" class="shape-select">
+                <option value="arc" selected>Arc Method</option>
+                <option value="blend">Blend Method</option>
+                <option value="alternative">Alternative Method</option>
+              </select>
+              <div class="param-note">
+                Different methods for applying corner radius. Try different options if one doesn't work as expected.
+              </div>
             </div>
           </div>
         </div>
@@ -678,6 +1277,7 @@
         <div class="tab-content" id="shapes-tab">
           <div class="control-group">
             <h3>Shape Controls</h3>
+            
             <div class="form-group">
               <label for="startShape">Start Shape:</label>
               <select id="startShape" class="shape-select">
@@ -742,9 +1342,18 @@
             </div>
             
             <div class="slider-container">
-              <label for="morphProgress">Morph Progress:</label>
-              <input type="range" id="morphProgress" min="0" max="1" value="0" step="0.01" aria-label="Morph Progress">
-              <span id="morphProgressValue" class="slider-value">0</span>
+              <div class="slider-row">
+                <div class="slider-anim-container">
+                  <label for="morphProgress">Morph Progress:</label>
+                  <input type="range" id="morphProgress" min="0" max="1" value="0" step="0.01" aria-label="Morph Progress">
+                  <span id="morphProgressValue" class="slider-value">0</span>
+                </div>
+                <div class="toggle-container" data-slider-id="morphProgress">
+                  <div class="toggle-switch" role="switch" aria-checked="false" tabindex="0">
+                    <span class="tooltip">Toggle animation</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -781,9 +1390,9 @@
               <select id="generationStrategy" class="shape-select">
                 <option value="starburst" selected>Starburst (Lines from Center)</option>
                 <option value="concentric">Concentric Shapes</option>
-                <option value="grid">Grid Pattern</option>
-                <option value="symmetrical">Symmetrical Pattern</option>
-                <option value="fractal">Fractal Pattern</option>
+                <option value="grid" disabled>Grid Pattern (Disabled)</option>
+                <option value="symmetrical" disabled>Symmetrical Pattern (Disabled)</option>
+                <option value="fractal" disabled>Fractal Pattern (Disabled)</option>
               </select>
             </div>
             
@@ -792,8 +1401,8 @@
               <div class="form-group">
                 <label for="centerStyle">Center Type:</label>
                 <select id="centerStyle" class="shape-select">
-                  <option value="dot" selected>Dot</option>
-                  <option value="none">None</option>
+                  <option value="dot">Dot</option>
+                  <option value="none" selected>None</option>
                   <option value="hole">Hole</option>
                   <option value="custom">Custom Shape</option>
                 </select>
@@ -807,19 +1416,15 @@
               
               <div class="slider-container">
                 <label for="centerGlowSize">Glow Size:</label>
-                <input type="range" id="centerGlowSize" min="0" max="50" value="5" step="1" aria-label="Center Glow Size">
-                <span id="centerGlowSizeValue" class="slider-value">5</span>
+                <input type="range" id="centerGlowSize" min="0" max="50" value="0" step="1" aria-label="Center Glow Size">
+                <span id="centerGlowSizeValue" class="slider-value">0</span>
               </div>
               
               <div class="slider-container">
                 <label for="centerGlowOpacity">Glow Opacity:</label>
-                <input type="range" id="centerGlowOpacity" min="0" max="1" value="0.5" step="0.05" aria-label="Center Glow Opacity">
-                <span id="centerGlowOpacityValue" class="slider-value">0.5</span>
+                <input type="range" id="centerGlowOpacity" min="0" max="1" value="0" step="0.05" aria-label="Center Glow Opacity">
+                <span id="centerGlowOpacityValue" class="slider-value">0</span>
               </div>
-            </div>
-            
-            <div id="modeSpecificControls" class="form-group">
-              <!-- This section will be dynamically populated based on selected generation strategy -->
             </div>
           </div>
         </div>
@@ -837,6 +1442,143 @@
               <label for="animationSpeed">Animation Speed:</label>
               <input type="range" id="animationSpeed" min="0.5" max="5" value="2" step="0.1" aria-label="Animation Speed">
               <span id="animationSpeedValue" class="slider-value">2</span>
+            </div>
+
+            <div class="slider-container">
+              <label for="toggleAnimDuration">Toggle Animation Duration (seconds):</label>
+              <input type="range" id="toggleAnimDuration" min="1" max="10" value="3" step="0.5" aria-label="Toggle Animation Duration">
+              <span id="toggleAnimDurationValue" class="slider-value">3</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-content" id="typography-tab">
+          <div class="control-group">
+            <h3>Text Settings</h3>
+            
+            <div class="form-group">
+              <label for="titleText">Title Text:</label>
+              <input type="text" id="titleText" class="text-input" placeholder="Enter title text..." value="STARBURST">
+            </div>
+            
+            <div class="form-group">
+              <label for="subtitleText">Subtitle Text:</label>
+              <input type="text" id="subtitleText" class="text-input" placeholder="Enter subtitle text..." value="geometric designer">
+            </div>
+            
+            <div class="form-group">
+              <label>Font Family:</label>
+              <div class="font-selector">
+                <button id="fontMetropolis" class="font-button active" data-font="metropolis">
+                  <span class="metropolis-preview">Aa</span>
+                  <span class="button-label">Metropolis</span>
+                </button>
+                <button id="fontWorkSans" class="font-button" data-font="worksans">
+                  <span class="worksans-preview">Aa</span>
+                  <span class="button-label">Work Sans</span>
+                </button>
+                <button id="fontOswald" class="font-button" data-font="oswald">
+                  <span class="oswald-preview">Aa</span>
+                  <span class="button-label">Oswald</span>
+                </button>
+                <button id="fontRoboto" class="font-button" data-font="roboto">
+                  <span class="roboto-preview">Aa</span>
+                  <span class="button-label">Roboto</span>
+                </button>
+                <button id="fontCrimsonPro" class="font-button" data-font="crimsonpro">
+                  <span class="crimsonpro-preview">Aa</span>
+                  <span class="button-label">Crimson Pro</span>
+                </button>
+              </div>
+            </div>
+            
+            <div class="form-group font-variations">
+              <label>Font Style:</label>
+              <div class="font-selector">
+                <button id="fontRegular" class="font-weight-button active" data-weight="regular">Regular</button>
+                <button id="fontBold" class="font-weight-button" data-weight="bold">Bold</button>
+                <button id="fontItalic" class="font-weight-button" data-weight="italic">Italic</button>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Text Case:</label>
+              <div class="toggle-switch-container">
+                <span class="toggle-label">a</span>
+                <div class="toggle-switch" id="textCaseToggle" role="switch" aria-checked="false" tabindex="0">
+                  <span class="tooltip">Toggle case</span>
+                </div>
+                <span class="toggle-label">A</span>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Text Position:</label>
+              <div class="position-selector">
+                <button id="posTop" class="position-button" data-position="top" title="Top">
+                  <svg viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="2"/><rect x="6" y="8" width="12" height="1"/></svg>
+                </button>
+                <button id="posCenter" class="position-button active" data-position="center" title="Center">
+                  <svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="2"/><rect x="6" y="15" width="12" height="1"/></svg>
+                </button>
+                <button id="posBottom" class="position-button" data-position="bottom" title="Bottom">
+                  <svg viewBox="0 0 24 24"><rect x="6" y="18" width="12" height="2"/><rect x="6" y="14" width="12" height="1"/></svg>
+                </button>
+                <button id="posVertical" class="position-button" data-position="vertical" title="Vertical">
+                  <svg viewBox="0 0 24 24"><rect transform="rotate(90)" x="6" y="-19" width="12" height="2"/><rect transform="rotate(90)" x="6" y="-15" width="12" height="1"/></svg>
+                </button>
+              </div>
+            </div>
+            
+            <div class="slider-container">
+              <label for="textSize">Size</label>
+              <input type="range" id="textSize" min="10" max="300" value="40" step="1" aria-label="Text Size">
+              <span class="slider-value" id="textSizeValue">40</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="charSpacing">Char. Spacing</label>
+              <input type="range" id="charSpacing" min="-0.3" max="3" value="0" step="0.01" aria-label="Character Spacing">
+              <span class="slider-value" id="charSpacingValue">0</span>
+            </div>
+            
+            <div class="slider-container">
+              <label for="lineSpacing">Line Spacing</label>
+              <input type="range" id="lineSpacing" min="0.1" max="5" value="1.5" step="0.1" aria-label="Line Spacing">
+              <span class="slider-value" id="lineSpacingValue">1.5</span>
+            </div>
+            
+            <div class="form-group">
+              <label for="textColor">Text Color:</label>
+              <div class="color-input">
+                <input type="color" id="textColor" value="#ffffff" aria-label="Text Color">
+                <div id="textColorPreview" class="color-preview" style="background-color: #ffffff;"></div>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Handwriting Fonts:</label>
+              <div class="font-selector">
+                <button id="fontSaintDelafield" class="font-button handwriting-font" data-font="saintdelafield">
+                  <span class="saintdelafield-preview">Aa</span>
+                  <span class="button-label">Saint Delafield</span>
+                </button>
+                <button id="fontHerrVon" class="font-button handwriting-font" data-font="herrvon">
+                  <span class="herrvon-preview">Aa</span>
+                  <span class="button-label">Herr Von M.</span>
+                </button>
+                <button id="fontRougeScript" class="font-button handwriting-font" data-font="rougescript">
+                  <span class="rougescript-preview">Aa</span>
+                  <span class="button-label">Rouge Script</span>
+                </button>
+              </div>
+              <div class="param-note">
+                Note: Full uppercase is disabled for handwriting fonts, but Title Case is supported.
+              </div>
+            </div>
+            
+            <div class="param-note">
+              The subtitle is automatically sized to 1/3 of the title size.
             </div>
           </div>
         </div>
@@ -875,6 +1617,7 @@
     <div class="test-actions">
       <button id="runAllTestsBtn">Run All Tests</button>
       <button id="runFailedTestsBtn">Re-run Failed</button>
+      <button id="copyTestResultsBtn">Copy Results</button>
       <button id="addCustomTestBtn">Add Custom Test</button>
     </div>
   </div>
